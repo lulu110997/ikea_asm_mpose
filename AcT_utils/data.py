@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
 
-labels = {'NA': 0,
+LABELS = {'NA': 0,
           'align leg screw with table thread': 1,
           'align side panel holes with front panel dowels': 2,
           'attach drawer back panel': 3,

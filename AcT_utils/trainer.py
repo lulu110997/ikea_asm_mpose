@@ -19,7 +19,8 @@ from optuna.trial import TrialState
 from AcT_utils import TransformerEncoder, PatchClassEmbedding
 from AcT_utils import load_mpose, random_flip, random_noise, one_hot
 from AcT_utils import CustomSchedule
-
+from AcT_utils.data import LABELS
+from AcT_utils import pickle_wrapper as _pw
 
 # TRAINER CLASS
 class Trainer:
@@ -32,6 +33,7 @@ class Trainer:
         self.bin_path = self.config['MODEL_DIR']
         
         self.model_size = model_sz #self.config['MODEL_SIZE']
+        self.data_type = self.config['DATA_TYPE']
         self.n_heads = self.config[self.model_size]['N_HEADS']
         self.n_layers = self.config[self.model_size]['N_LAYERS']
         self.embed_dim = self.config[self.model_size]['EMBED_DIM']
@@ -42,7 +44,6 @@ class Trainer:
         self.d_ff = self.d_model * 4
         self.pos_emb = self.config['POS_EMB']
 
-        
     def build_act(self, transformer):
         inputs = tf.keras.layers.Input(shape=(self.config[self.config['DATASET']]['FRAMES'] // self.config['SUBSAMPLE'], 
                                               self.config[self.config['DATASET']]['KEYPOINTS'] * self.config['CHANNELS']))
@@ -63,12 +64,10 @@ class Trainer:
         self.train_steps = np.ceil(float(self.train_len)/self.config['BATCH_SIZE'])
         self.test_steps = np.ceil(float(self.test_len)/self.config['BATCH_SIZE'])
 
-        if self.config['SCHEDULER']:
-            lr = CustomSchedule(self.d_model,
-                                warmup_steps=self.train_steps*self.config['N_EPOCHS']*self.config['WARMUP_PERC'],
-                                decay_step=self.train_steps*self.config['N_EPOCHS']*self.config['STEP_PERC'])
-        else:
-            lr = 3 * 10**self.config['LR_MULT']
+
+        lr = CustomSchedule(self.d_model,
+                            warmup_steps=self.train_steps*self.config['N_EPOCHS']*self.config['WARMUP_PERC'],
+                            decay_step=self.train_steps*self.config['N_EPOCHS']*self.config['STEP_PERC'])
         optimizer = tfa.optimizers.AdamW(learning_rate=lr, weight_decay=self.config['WEIGHT_DECAY'])
 
         self.model.compile(optimizer=optimizer,
@@ -91,10 +90,10 @@ class Trainer:
         self.train_len = len(y_train)
         self.test_len = len(y_test)
 
-        # X_train, X_val, y_train, y_val = train_test_split(X_train, y_train,
-        #                                                   test_size=self.config['VAL_SIZE'],
-        #                                                   random_state=self.config['SEEDS'][self.fold],
-        #                                                   stratify=y_train)
+        X_train, X_val, y_train, y_val = train_test_split(X_train, y_train,
+                                                          test_size=self.config['VAL_SIZE'],
+                                                          random_state=self.config['SEEDS'][self.fold],
+                                                          stratify=y_train)
 
         self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train))
         # self.ds_val = tf.data.Dataset.from_tensor_slices((X_val, y_val))
@@ -160,17 +159,13 @@ class Trainer:
             self.model.load_weights(self.config['WEIGHTS'])
 
         _, accuracy_test = self.model.evaluate(self.ds_test, steps=self.test_steps)
-        if self.config['DATASET'] == 'kinetics':
-            g = list(self.ds_test.take(self.test_steps).as_numpy_iterator())
-            X = [e[0] for e in g]
-            X = np.vstack(X)
-            y = [e[1] for e in g]
-            y = np.vstack(y)
-        else:
-            X, y = tuple(zip(*self.ds_test))
-        y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0)), axis=-1),axis=1)
-        balanced_accuracy = sklearn.metrics.balanced_accuracy_score(tf.math.argmax(tf.concat(y, axis=0), axis=1), y_pred)
 
+        X, y = tuple(zip(*self.ds_test))
+        y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0)), axis=-1),axis=1)
+        y_true = tf.math.argmax(tf.concat(y, axis=0), axis=1)
+        balanced_accuracy = sklearn.metrics.balanced_accuracy_score(y_true, y_pred)
+        conf_matr = sklearn.metrics.confusion_matrix(y_true, y_pred, LABELS)
+        _pw.save_pickle(f"model_{self.model_size}_data_{self.data_type}", conf_matr)
         text = f"Accuracy Test: {accuracy_test} <> Balanced Accuracy: {balanced_accuracy}\n"
         self.logger.save_log(text)
         
