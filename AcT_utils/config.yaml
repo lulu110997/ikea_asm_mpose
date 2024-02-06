@@ -6,7 +6,7 @@ VERBOSE: False
 MODEL_DIR: 'bin/'
 RESULTS_DIR: 'results/'
 LOG_DIR: 'logs/'
-MODEL_NAME: 'AcT'
+MODEL_NAME: '2d_body'
 
 #---- DATASET
 SPLITS: 1
@@ -40,7 +40,7 @@ RN_STD: 0.03
 
 #---- MODEL
 #PATCH_SIZE: 1
-MODEL_SIZE: 'small'
+MODEL_SIZE: 'nulla'
 POS_EMB: #'AcT_utils/pos_emb.npy'
 micro:        
     N_HEADS: 1

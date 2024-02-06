@@ -75,7 +75,7 @@ class Trainer:
                            loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.1),
                            metrics=[tf.keras.metrics.CategoricalAccuracy(name="accuracy")])
 
-        self.name_model_bin = f"{self.config['MODEL_NAME']}_{self.config['MODEL_SIZE']}_{self.split}_{self.fold}.h5"
+        self.name_model_bin = f"{self.config['MODEL_NAME']}_{self.model_size}_{self.split}_{self.fold}.h5"
 
         self.checkpointer = tf.keras.callbacks.ModelCheckpoint(self.bin_path + self.name_model_bin,
                                                                monitor="val_accuracy",
@@ -209,7 +209,8 @@ class Trainer:
         
     def do_benchmark(self):
         for split in range(1, self.config['SPLITS']+1):      
-            self.logger.save_log(f"----- Start Split {split} ----\n")
+            self.logger.save_log(f"model {self.model_size} is being trained")
+
             self.split = split
             
             acc_list = []

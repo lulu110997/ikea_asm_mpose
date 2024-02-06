@@ -39,7 +39,6 @@ tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
 for i in ["small", "base", "large", "micro"]:
-    logger.save_log(f"model {i} is being trained")
 
     # SET TRAINER
     trainer = Trainer(config, logger, i)
