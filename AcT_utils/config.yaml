@@ -1,0 +1,83 @@
+#---- GENERAL
+GPU: 0
+VERBOSE: False
+
+#---- PATHS
+MODEL_DIR: 'bin/'
+RESULTS_DIR: 'results/'
+LOG_DIR: 'logs/'
+MODEL_NAME: 'AcT'
+
+#---- DATASET
+SPLITS: 1
+FOLDS: 10
+SEEDS: [11331, 11435, 12123, 53453, 42344, 24234, 65747, 84443, 29345, 99543]
+VAL_SIZE: 0.1
+CHANNELS: 4
+SUBSAMPLE: 1
+DATASET: 'openpose_coco'
+LEGACY: False
+openpose:
+    KEYPOINTS: 13
+    CLASSES: 20
+    FRAMES: 30
+openpose_coco:
+    KEYPOINTS: 13
+    CLASSES: 33
+    FRAMES: 60
+
+LABELS: ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
+         'attach drawer back panel', 'attach drawer side panel', 'attach shelf to table', 'flip shelf',
+         'flip table', 'flip table top', 'insert drawer pin', 'lay down back panel', 'lay down bottom panel',
+         'lay down front panel', 'lay down leg', 'lay down shelf', 'lay down side panel', 'lay down table top',
+         'other', 'pick up back panel', 'pick up bottom panel', 'pick up front panel', 'pick up leg', 'pick up pin',
+         'pick up shelf', 'pick up side panel', 'pick up table top', 'position the drawer right side up', 'push table',
+         'push table top', 'rotate table', 'slide bottom of drawer', 'spin leg', 'tighten leg']
+
+#---- AUGMENTATION
+FLIP_P: 0.5
+RN_STD: 0.03
+
+#---- MODEL
+#PATCH_SIZE: 1
+MODEL_SIZE: 'micro'
+POS_EMB: #'AcT_utils/pos_emb.npy'
+micro:        
+    N_HEADS: 1
+    N_LAYERS: 4
+    EMBED_DIM: 64
+    DROPOUT: 0.3
+    MLP: 256
+small:    
+    N_HEADS: 2
+    N_LAYERS: 5
+    EMBED_DIM: 128
+    DROPOUT: 0.3
+    MLP: 256
+base:
+    N_HEADS: 3
+    N_LAYERS: 6
+    EMBED_DIM: 192
+    DROPOUT: 0.3
+    MLP: 256
+large:
+    N_HEADS: 4
+    N_LAYERS: 6
+    EMBED_DIM: 256
+    DROPOUT: 0.4
+    MLP: 512
+
+#---- TRAINING SETTINGS 
+SCHEDULER: True
+N_EPOCHS: 350       
+BATCH_SIZE: 512
+WEIGHT_DECAY: 0.0001  
+WARMUP_PERC: 0.3  
+STEP_PERC: 0.8
+LR_MULT: 1
+
+#---- RANDOM SEARCH
+N_TRIALS: 5
+
+#---- TEST SETTINGS
+WEIGHTS: '/home/louis/Data/Fernandez_HAR/AcT_pretrained_weights/openpose/micro/AcT_micro.h5'

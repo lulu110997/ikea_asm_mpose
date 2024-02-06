@@ -1,0 +1,90 @@
+#---- GENERAL SETTINGS
+
+CACHE_DIR: '/.ikea_asm_2d_pose/'
+
+#---- DATASET PATHS
+
+
+#---- DATASET CONSTANTS
+DATASET:
+    T: 64
+    C: 3
+         
+    openpose_body25:
+        K: 25
+        k: 15
+        k_axp: 13
+        center_1: 1
+        center_2: 1
+        module_keypoint_1: 8
+        module_keypoint_2: 8
+        head: [0, 15, 16, 17, 18]
+        right_foot: [11, 22, 23, 24]
+        left_foot: [14, 19, 20, 21]
+        prune: [1,8]
+
+    posenet:
+        K: 17
+        k: 13
+        k_axp: 13
+        center_1: 1
+        center_2: 2
+        module_keypoint_1: 7
+        module_keypoint_2: 8
+        head: [0, 1, 2, 3, 4]
+        right_foot: [15]
+        left_foot: [16]
+        prune: []
+
+    openpose_coco:
+        K: 18
+        k: 14 # averaging clustered joints
+        k_axp: 13 # removing joints used for centring and normalising
+        center_1: 1 
+        center_2: 1
+        module_keypoint_1: 8
+        module_keypoint_2: 11
+        head: [0, 14, 15, 16, 17]
+        right_foot: [10]
+        left_foot: [13]
+        prune: [1]
+        
+    verb: {
+        "na":0,
+        "align":1,
+        "attach":2,
+        "flip":3,
+        "insert":4,
+        "lay down":5,
+        "other":6, 
+        "pick up":7, 
+        "position":8,
+        "push":9,
+        "rotate":10,
+        "slide":11, 
+        "spin":12,
+        "tighten":13
+        }
+
+    verb_obj: {
+        "standing":0,
+        "check-watch":1,
+        "cross-arms":2,
+        "scratch-head":3,
+        "sit-down":4,
+        "get-up":5,
+        "turn":6, 
+        "walk":7, 
+        "wave1":8,
+        "box":9,
+        "kick":10,
+        "point":11, 
+        "pick-up":12,
+        "bend":13,
+        "hands-clap":14,
+        "wave2":15,
+        "jog":16,
+        "jump":17,
+        "pjump":18,
+        "run":19
+        }
