@@ -39,7 +39,7 @@
 models/
 build/
 __pycache__/
-results/
+AcT_utils/micro_test_ikea_2d_body/results/
 pickles/
 data/
-logs/
+AcT_utils/micro_test_ikea_2d_body/logs/

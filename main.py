@@ -38,24 +38,26 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
+for i in ["small", "base", "large", "micro"]:
+    logger.save_log(f"model {i} is being trained")
 
-# SET TRAINER
-trainer = Trainer(config, logger)
+    # SET TRAINER
+    trainer = Trainer(config, logger, i)
 
-if True:
-    # RUN BENCHMARK
-    trainer.do_benchmark()
+    if True:
+        # RUN BENCHMARK
+        trainer.do_benchmark()
 
-elif args.search:
-    # RUN RANDOM SEARCH
-    trainer.do_random_search()
+    elif args.search:
+        # RUN RANDOM SEARCH
+        trainer.do_random_search()
 
-elif args.test:
-    # RUN TEST
-    trainer.do_test()
-    
-else:
-    print('Nothing to do! Specify one of the following arguments:')
-    print('\t --benchmark [-b]: run a benchmark')
-    print('\t --search [-s]: run a random search')
-    print('\t --test [-t]: run a test')
+    elif args.test:
+        # RUN TEST
+        trainer.do_test()
+
+    else:
+        print('Nothing to do! Specify one of the following arguments:')
+        print('\t --benchmark [-b]: run a benchmark')
+        print('\t --search [-s]: run a random search')
+        print('\t --test [-t]: run a test')

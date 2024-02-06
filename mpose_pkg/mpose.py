@@ -63,7 +63,7 @@ class MPOSE():
         if self.verbose:
             print(f"Initializing MPOSE2021 with {self.pose_extractor} Pose Extractor")
         if self.config_file is None:
-            self.config_file = "/home/louis/Git/ikea_asm_preprocess/mpose_pkg/config.yaml"
+            self.config_file = "/home/louis/Git/ikea_asm_mpose/mpose_pkg/config.yaml"
         self.config = read_yaml(self.config_file)
         self.data_dir = os.path.expanduser('~') + self.config['CACHE_DIR']
    

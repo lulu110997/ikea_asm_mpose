@@ -224,10 +224,8 @@ class PatchClassEmbedding(tf.keras.layers.Layer):
             positions = tf.range(start=0, limit=self.n_tot_patches, delta=1)
             pe = self.position_embedding(positions)
         else:
-            #pe = tf.concat([tf.zeros((self.n_tot_patches-1, 1)), self.pos_emb], axis=1) # N*(N+1)
             pe = self.pos_emb
             pe = tf.reshape(pe, [1, -1])
             pe = self.lap_position_embedding(pe)
-            #pe = tf.reshape(pe, [self.n_tot_patches, self.d_model])
         encoded = x + pe
         return encoded

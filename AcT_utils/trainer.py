@@ -23,7 +23,7 @@ from AcT_utils import CustomSchedule
 
 # TRAINER CLASS
 class Trainer:
-    def __init__(self, config, logger, split=1, fold=0):
+    def __init__(self, config, logger, model_sz, split=1, fold=0):
         self.config = config
         self.logger = logger
         self.split = split
@@ -31,7 +31,7 @@ class Trainer:
         self.trial = None
         self.bin_path = self.config['MODEL_DIR']
         
-        self.model_size = self.config['MODEL_SIZE']
+        self.model_size = model_sz #self.config['MODEL_SIZE']
         self.n_heads = self.config[self.model_size]['N_HEADS']
         self.n_layers = self.config[self.model_size]['N_LAYERS']
         self.embed_dim = self.config[self.model_size]['EMBED_DIM']
