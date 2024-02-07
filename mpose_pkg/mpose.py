@@ -270,12 +270,6 @@ class MPOSE():
         self.X_train = self.X_train.reshape(self.X_train.shape[0], self.T, -1)
         self.X_test = self.X_test.reshape(self.X_test.shape[0], self.T, -1)
     
-    def reduce_labels(self):
-        for i in range(len(self.y_train)):
-            self.y_train[i] = self.config['DATASET']['red_lab'][str(self.y_train[i])]
-        for i in range(len(self.y_test)):
-            self.y_test[i] = self.config['DATASET']['red_lab'][str(self.y_test[i])]
-    
     def reset_data(self):
         if self.remove_zip is True:
             print('Error! The zip file was removed from disk!')

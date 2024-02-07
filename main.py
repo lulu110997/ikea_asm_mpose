@@ -38,7 +38,7 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
-for i in ["small", "base", "large", "micro"]:
+for i in ["small", "base", "micro"]:
 
     # SET TRAINER
     trainer = Trainer(config, logger, i)
