@@ -7,7 +7,7 @@ CACHE_DIR: '/.ikea_asm_2d_pose/'
 
 #---- DATASET CONSTANTS
 DATASET:
-    T: 64
+    T: 30
     C: 3
          
     openpose_body25:

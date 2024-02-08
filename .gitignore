@@ -30,6 +30,7 @@
 *.npy
 *.pt
 *.tflite
+*.h5
 
 # IDE settings
 *.vscode
@@ -39,7 +40,9 @@
 models/
 build/
 __pycache__/
-AcT_utils/micro_test_ikea_2d_body/results/
+results/
 pickles/
 data/
-AcT_utils/micro_test_ikea_2d_body/logs/
+log/
+logs/
+bin/

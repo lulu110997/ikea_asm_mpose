@@ -21,7 +21,7 @@ openpose:
 openpose_coco:
     KEYPOINTS: 13
     CLASSES: 33
-    FRAMES: 64
+    FRAMES: 30
 
 LABELS: ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
          'attach drawer back panel', 'attach drawer side panel', 'attach shelf to table', 'flip shelf',
@@ -43,34 +43,34 @@ micro:
     N_HEADS: 1
     N_LAYERS: 4
     EMBED_DIM: 64
-    DROPOUT: 0.3
+    DROPOUT: 0.5
     MLP: 256
 small:    
     N_HEADS: 2
     N_LAYERS: 5
     EMBED_DIM: 128
-    DROPOUT: 0.3
+    DROPOUT: 0.5
     MLP: 256
 base:
     N_HEADS: 3
     N_LAYERS: 6
     EMBED_DIM: 192
-    DROPOUT: 0.3
+    DROPOUT: 0.5
     MLP: 256
 large:
     N_HEADS: 4
     N_LAYERS: 6
     EMBED_DIM: 256
-    DROPOUT: 0.4
+    DROPOUT: 0.6
     MLP: 512
 
 #---- TRAINING SETTINGS 
 SCHEDULER: True
 N_EPOCHS: 100
 BATCH_SIZE: 512
-WEIGHT_DECAY: 0.0001  
-WARMUP_PERC: 0.1
-STEP_PERC: 0.8
+WEIGHT_DECAY: 0.004
+WARMUP_PERC: 0.15
+STEP_PERC: 0.5
 
 #---- RANDOM SEARCH
 N_TRIALS: 5

@@ -21,13 +21,15 @@ parser.add_argument('--search','-s', action='store_true', help='Run a random sea
     
 args = parser.parse_args()
 config = read_yaml(args.config)
-
+now = datetime.now()
+now = now.strftime("%y%m%d%H%M%S")
+results_dirs = []
 for entry in ['MODEL_DIR','RESULTS_DIR','LOG_DIR']:
     if not os.path.exists(config[entry]):
-        os.mkdir(config[entry])
+        results_dirs.append(os.path.join(now, config[entry]))
+        os.makedirs(os.path.join(now, config[entry]))
 
-now = datetime.now()
-logger = Logger(config['LOG_DIR']+now.strftime("%y%m%d%H%M%S")+'.txt')
+logger = Logger(results_dirs[2]+'/log.txt')
 
 
 # SET GPU 
@@ -38,10 +40,10 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
-for i in ["small", "base", "micro"]:
+for i in ["micro", "small", "base"]:
 
     # SET TRAINER
-    trainer = Trainer(config, logger, i)
+    trainer = Trainer(config, logger, i, results_dirs)
 
     if True:
         # RUN BENCHMARK
