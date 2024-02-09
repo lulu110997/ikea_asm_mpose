@@ -9,6 +9,7 @@ import cv2
 from mpose_pkg.mpose import MPOSE
 import numpy as np
 import tensorflow as tf
+tf.keras.utils.set_random_seed(9)
 
 LABELS = ['NA',
           'align leg screw with table thread',
@@ -48,7 +49,7 @@ ROOT_DIR = "/home/louis/.ikea_asm_2d_pose/openpose_coco/"
 SPLIT = "1"
 
 
-def check_xy(x, y, img_path, label_to_check=None, seed=9):
+def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=9, save=False):
     if seed is not None:
         x, y, img_path = sklearn.utils.shuffle(x, y, img_path, random_state=seed)
     try:
@@ -61,7 +62,8 @@ def check_xy(x, y, img_path, label_to_check=None, seed=9):
             frame_count = 0
             for frame_idx, kp in enumerate(frames):
                 frame_count += 1
-                frame1 = cv2.imread(img_path[sample_idx][frame_idx])
+                curr_path = img_path[sample_idx][frame_idx]
+                frame1 = cv2.imread(curr_path)
                 cv2.putText(frame1, label, (20, 20), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
 
                 for kp_idx, coords in enumerate(kp):
@@ -69,8 +71,15 @@ def check_xy(x, y, img_path, label_to_check=None, seed=9):
                     cv2.putText(frame1, str(kp_idx), (int(coords[0]), int(coords[1])), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 255), 1)
 
                 cv2.putText(frame1, str(frame_count), (20, 50), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
-                cv2.imshow('win', frame1)
-                cv2.waitKey(2*x.shape[1])
+                if not save:
+                    cv2.waitKey(x.shape[1])
+                    cv2.imshow('win', frame1)
+                else:
+                    new_path, tmp = curr_path.split('ikea_asm_dataset_RGB_top_frames')
+                    new_path = os.path.join(new_path, "labelled_images")
+                    if not os.path.exists(new_path):
+                        os.mkdir(new_path)
+                    cv2.imwrite(os.path.join(new_path, tmp.replace("/", "_")), frame1)
     except Exception as e:
         print(e)
         cv2.destroyAllWindows()
@@ -111,7 +120,7 @@ def get_label_counts(y):
                 labels.sort()
                 counts.insert(idx, 0)
         print(f"Final labels and count: \n{list(zip(labels, counts))}\n")
-    return counts
+    return labels, counts
 
 
 def get_data():
@@ -159,33 +168,33 @@ def get_data():
 
     return X_train, y_train, X_test, y_test, train_img_paths, test_img_paths
 
+
 def get_class_dist(y):
-    counts = get_label_counts(y)
+    __, counts = get_label_counts(y)
 
     total_label_counts = sum(counts)
     dist = []
     for i in list(zip(LABELS, counts)):
-        # print(f"{i[0]}, {i[1]}, {i[1]/total_label_counts}")
         dist.append(i[1] / total_label_counts)
+        print(f"{i[0]}, {i[1]}, {i[1]/total_label_counts}")
     return dist
+
 
 ########################################################################################################################
 X_train, y_train, X_test, y_test, train_img_paths, test_img_paths = get_data()
-
-check_xy(X_test, y_test, test_img_paths, seed=None)
 
 X_train_list = []
 y_train_list = []
 video_train_list = []
 ds = []
-
+class_weights = sklearn.utils.compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
 for i in range(33):
     mask = np.where(y_train == i)
     curr_x = X_train[mask]
     curr_y = y_train[mask]
     curr_v = train_img_paths[mask]
 
-    rep_val = 400 - curr_x.shape[0]
+    rep_val = 100 - curr_x.shape[0]
     # if n_samples < 800:
     #     curr_x = np.repeat(curr_x, 800 - n_samples, axis=0)
     #     curr_y = np.repeat(curr_y, 800 - n_samples)
@@ -196,12 +205,14 @@ for i in range(33):
     video_train_list.append(curr_v)
     tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask]))
     if rep_val > 0:
-        tmp_ds = tmp_ds.repeat(math.ceil(400.0 / curr_x.shape[0]))
+        tmp_ds = tmp_ds.repeat(math.ceil(100.0 / curr_x.shape[0])).shuffle(50)
 
     ds.append(tmp_ds)
 
-resampled_ds = tf.data.experimental.sample_from_datasets(ds, weights=33*[0.5], stop_on_empty_dataset=True)
-
-# print(len(list(ds_train.as_numpy_iterator())))
-#
+resampled_ds = tf.data.Dataset.sample_from_datasets(ds, weights=33*[1.0/33], stop_on_empty_dataset=True,
+                                                    rerandomize_each_iteration=True)
+label_count = 33*[0]
+for i in resampled_ds.as_numpy_iterator():
+    label_count[i[1]] += 1
+print(label_count, sum(label_count))
 

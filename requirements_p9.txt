@@ -1,0 +1,5 @@
+tensorflow[and-cuda]
+scikit-learn
+matplotlib
+pyyaml
+optuna

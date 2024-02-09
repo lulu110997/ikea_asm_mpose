@@ -9,6 +9,8 @@ def open_pickle(pickle_path):
     Returns:
         pickle_file: pickle file that was deserialised
     """
+    if (not pickle_path.endswith('.pickle')) or (not pickle_path.endswith('.pkl')):
+        pickle_name = pickle_path + '.pickle'
     with open(pickle_path, 'rb') as f:
         pickle_file = pickle.load(f)
 
@@ -25,7 +27,7 @@ def save_pickle(pickle_name, data):
 
     Returns:
     """
-    if not pickle_name.endswith('.pickle'):
+    if (not pickle_name.endswith('.pickle')) or (not pickle_name.endswith('.pkl')):
         pickle_name = pickle_name + '.pickle'
 
     with open(pickle_name, 'wb') as f:

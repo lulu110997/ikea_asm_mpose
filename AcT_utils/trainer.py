@@ -1,6 +1,10 @@
 # GENERAL LIBRARIES 
 import os
 import math
+import time
+
+import yaml
+from matplotlib import pyplot as plt
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -12,7 +16,6 @@ import joblib
 # MACHINE LEARNING LIBRARIES
 import sklearn
 import tensorflow as tf
-import tensorflow_addons as tfa
 from sklearn.model_selection import train_test_split
 # OPTUNA
 import optuna
@@ -41,7 +44,6 @@ class Trainer:
         self.activation = tf.nn.gelu
         self.d_model = 64 * self.n_heads
         self.d_ff = 4 * self.d_model  # Output size of the first non-linear layer in the transformer encoder
-        self.pos_emb = config['POS_EMB']
         assert self.d_model == self.embed_dim  # Should be the same
 
         self.DATASET = config["DATASET"]
@@ -63,6 +65,9 @@ class Trainer:
 
         self.bin_path = root_results_dir[0]
         self.results_dir = root_results_dir[1]
+        p = os.path.join(self.results_dir, "config_file.yaml")
+        with open(p, 'w') as outfile:
+            yaml.dump(config, outfile, default_flow_style=False)
 
     def build_act(self, transformer):
         inputs = tf.keras.layers.Input(shape=(self.N_FRAMES, self.N_KEYPOINTS * self.FEATURES_PER_KP))
@@ -85,22 +90,18 @@ class Trainer:
                                     outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-1].output))
         
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE)
-        self.test_steps = np.ceil(float(self.test_len)/self.BATCH_SIZE)
-
 
         lr = CustomSchedule(self.d_model,
-                            warmup_steps=self.train_steps*self.N_EPOCHS*self.WARMUP_PERC,
-                            decay_step=self.train_steps*self.N_EPOCHS*self.STEP_PERC)
-        optimizer = tfa.optimizers.AdamW(learning_rate=lr, weight_decay=self.WEIGHT_DECAY)
-        # optimizer = tfa.optimizers.AdamW(0.004)
+                                 warmup_steps=self.train_steps * self.N_EPOCHS * self.WARMUP_PERC,
+                                 decay_step=self.train_steps * self.N_EPOCHS * self.STEP_PERC)
+        loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.1)
+        # loss = tf.keras.losses.CategoricalFocalCrossentropy(from_logits=True, label_smoothing=0.1)
+        optim = tf.keras.optimizers.AdamW()
 
-
-        self.model.compile(optimizer=optimizer,
-                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.1),
+        self.model.compile(optimizer=optim,
+                           loss=loss,
                            metrics=[tf.keras.metrics.CategoricalAccuracy(name="accuracy")])
-
         self.name_model_bin = f"{self.model_size}_{self.DATA_TYPE}.h5"
-
         self.checkpointer = tf.keras.callbacks.ModelCheckpoint(self.bin_path + self.name_model_bin, monitor="val_loss",
                                                                mode="min", save_best_only=True, save_weights_only=True)
         return
@@ -108,43 +109,44 @@ class Trainer:
     def get_data(self):
 
         X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.split, legacy=False, verbose=False)
-        self.train_len = len(y_train)
-        self.test_len = len(y_test)
 
-        # X_train_list = []
-        # y_train_list = []
-        # ds = []
-        # THRESH = 400.0
-        # for i in range(self.N_CLASSES):
-        #     mask = np.where(y_train == i)
-        #     curr_x = X_train[mask]
-        #     curr_y = y_train[mask]
-        #
-        #     X_train_list.append(curr_x)
-        #     y_train_list.append(curr_y)
-        #     tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask])).shuffle(X_train.shape[0])
-        #     if THRESH > curr_x.shape[0]:
-        #         tmp_ds = tmp_ds.repeat(math.ceil(THRESH / curr_x.shape[0]))
-        #
-        #     ds.append(tmp_ds)
-        #
-        # self.ds_train = tf.data.experimental.sample_from_datasets(ds, weights=33*[1/33.0], stop_on_empty_dataset=True)
+        self.class_freq = np.unique(y_train, return_counts=True)[0]
 
-        self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
-                                                                  classes=np.unique(y_train), y=y_train)
-        self.class_weights = {key: val for key, val in enumerate(weights)}
+        X_train_list = []
+        y_train_list = []
+        ds = []
+        THRESH = 100.0
+        for i in range(self.N_CLASSES):
+            mask = np.where(y_train == i)
+            curr_x = X_train[mask]
+            curr_y = y_train[mask]
 
-        self.ds_test = tf.data.Dataset.from_tensor_slices((X_test, y_test))
+            X_train_list.append(curr_x)
+            y_train_list.append(curr_y)
+            tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask])).shuffle(X_train.shape[0])
+            if THRESH > curr_x.shape[0]:
+                tmp_ds = tmp_ds.repeat(math.ceil(THRESH / curr_x.shape[0]))
 
-        self.ds_train = self.ds_train.map(lambda x,y : one_hot(x, y, self.N_CLASSES),
-                                          num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        self.ds_train = self.ds_train.cache()
+            ds.append(tmp_ds.shuffle(int(THRESH//2)))
+
+        self.ds_train = tf.data.Dataset.sample_from_datasets(ds, weights=33*[1/33.0], stop_on_empty_dataset=True, rerandomize_each_iteration=True)
+        self.train_len = 2693 #len(y_train)
+
+        # self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+        # self.class_weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
+                                                                  # classes=np.unique(y_train), y=y_train)
+        # self.class_weights = {key: val for key, val in enumerate(weights)}
+
         self.ds_train = self.ds_train.map(random_flip, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.shuffle(X_train.shape[0])
         self.ds_train = self.ds_train.batch(self.BATCH_SIZE)
         self.ds_train = self.ds_train.prefetch(tf.data.experimental.AUTOTUNE)
+
+        self.ds_test = tf.data.Dataset.from_tensor_slices((X_test, y_test))
+
+        self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
+                                          num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
         self.ds_test = self.ds_test.map(lambda x,y : one_hot(x, y, self.N_CLASSES),
                                         num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -175,8 +177,8 @@ class Trainer:
 
             acc, bal_acc = self.do_training()
 
-            np.save(self.results_dir + self.DATA_TYPE + '_' + self.DATASET + f'_{split}_accuracy.npy', acc)
-            np.save(self.results_dir + self.DATA_TYPE + '_' + self.DATASET + f'_{split}_balanced_accuracy.npy', bal_acc)
+            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
+            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
 
             self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
             self.logger.save_log(f"Accuracy: {acc}")
@@ -188,18 +190,18 @@ class Trainer:
         else:
             self.model.load_weights(self.weights_path)
 
-        loss, accuracy_test = self.model.evaluate(self.ds_test, steps=self.test_steps)
+        loss, accuracy_test = self.model.evaluate(self.ds_test)
 
         X, y = tuple(zip(*self.ds_test))
-        y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0)), axis=-1),axis=1)
+        y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0)), axis=-1), axis=1)
         y_true = tf.math.argmax(tf.concat(y, axis=0), axis=1)
         balanced_accuracy = sklearn.metrics.balanced_accuracy_score(y_true, y_pred)
-        conf_matr = sklearn.metrics.confusion_matrix(y_true, y_pred, labels=self.LABELS)
+        conf_matr = sklearn.metrics.confusion_matrix(y_true, y_pred)
         filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_conf_matr"
         _pw.save_pickle(os.path.join(self.results_dir, filename), conf_matr)
         text = f"Accuracy Test: {accuracy_test} <> Balanced Accuracy: {balanced_accuracy}\n"
         self.logger.save_log(text)
-        
+        self.save_plots()
         return accuracy_test, balanced_accuracy
 
     def do_test(self):
@@ -257,4 +259,39 @@ class Trainer:
         self.logger.save_log('WARMUP_PERC: {:.2e}'.format(self.WARMUP_PERC))
         self.logger.save_log('WEIGHT_DECAY: {:.2e}'.format(self.WEIGHT_DECAY))
         self.logger.save_log('LR_MULT: {:.2e}'.format(self.STEP_PERC))
+
+    def save_plots(self):
+        filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_history.pickle"
+        history = _pw.open_pickle(os.path.join(self.results_dir, filename))
+        train_loss, val_loss, train_acc, val_acc = history
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig.suptitle(f"Loss and accuracy for model_{self.model_size}_data_{self.DATA_TYPE}")
+        fig.set_size_inches(10.8, 7.2)
+        ax1.plot(train_loss, label="Training loss")
+        ax1.plot(val_loss, label="Validation loss")
+        ax1.set_ylabel("Loss", color='r', fontsize=14)
+        ax1.legend()
+        ax2.plot(train_acc, label="Training accuracy")
+        ax2.plot(val_acc, label="Validation accuracy")
+        ax2.set_ylabel("Accuracy", color='r', fontsize=14)
+        ax2.legend()
+        plt.savefig(os.path.join(self.results_dir, filename.replace(".pickle", ".jpg")), dpi=100)
+
+        filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_conf_matr.pickle"
+        FONT_SIZE = 5
+        cm = _pw.open_pickle(os.path.join(self.results_dir, filename))
+        disp = sklearn.metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+        disp.plot()
+        fig = plt.gcf()
+        fig.set_size_inches(10.8, 10.8)
+        ax = plt.gca()
+        ax.set_title(f"Confusion matrix for model_{self.model_size}_data_{self.DATA_TYPE}")
+        ax.set_xticklabels(LABELS, rotation=25, ha='right', fontsize=FONT_SIZE)
+        ax.set_yticklabels(LABELS, fontsize=1.4 * FONT_SIZE)
+        for labels in disp.text_.ravel():
+            labels.set_fontsize(1.4 * FONT_SIZE)
+        p = os.path.join(self.results_dir, filename.replace(".pickle", ".jpg"))
+        plt.savefig(p, dpi=100, bbox_inches='tight')
+        plt.close('all')
+
 

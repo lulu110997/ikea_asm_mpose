@@ -1,4 +1,6 @@
 # GENERAL LIBRARIES
+# https://www.tensorflow.org/install/source#gpu
+import sys
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import absl.logging
@@ -29,19 +31,19 @@ for entry in ['MODEL_DIR','RESULTS_DIR','LOG_DIR']:
         results_dirs.append(os.path.join(now, config[entry]))
         os.makedirs(os.path.join(now, config[entry]))
 
-logger = Logger(results_dirs[2]+'/log.txt')
-
 
 # SET GPU 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
+if len(gpus) == 0:
+    raise "gpu not found"
 tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
-for i in ["micro", "small", "base"]:
-
+for i in ["micro", "small"]:
+    logger = Logger(results_dirs[2] + f'/{i}_log.txt')
     # SET TRAINER
     trainer = Trainer(config, logger, i, results_dirs)
 
