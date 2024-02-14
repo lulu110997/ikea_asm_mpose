@@ -281,7 +281,8 @@ class MPOSE():
     def get_data(self, seq_id=False):
         if seq_id:
             return self.X_train, self.y_train, self.train_ids, self.X_test, self.y_test, self.test_ids
-        return self.X_train.copy(), self.y_train.copy(), self.X_test.copy(), self.y_test.copy()
+        return (self.X_train.copy().astype(np.float32), self.y_train.copy().astype(np.int64),
+                self.X_test.copy().astype(np.float32), self.y_test.copy().astype(np.int64))
     
     def get_info(self):
         print('----Dataset Information----')

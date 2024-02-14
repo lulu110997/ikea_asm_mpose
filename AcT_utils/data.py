@@ -56,30 +56,20 @@ LABELS = {'NA': 0,
           }
 
 
-def load_mpose(dataset, split, verbose=False, legacy=False):
-    
-    if legacy:
-        return load_dataset_legacy(data_folder=f'datasets/openpose_bm/split{split}/base_vars/')
+def load_mpose(dataset, split, velocity):
     
     d = MPOSE(pose_extractor=dataset, 
                     split=split, 
                     preprocess=None, 
-                    velocities=True, 
+                    velocities=velocity,
                     remove_zip=False)
-    
-    if 'legacy' not in dataset:
-        d.reduce_keypoints()
-        d.scale_and_center()
-        d.remove_confidence()
-        d.flatten_features()
-        #d.reduce_labels()
-        return d.get_data()
-    
-    elif 'openpose' in dataset:
-        X_train, y_train, X_test, y_test = d.get_data()
-        return X_train, transform_labels(y_train), X_test, transform_labels(y_test)
-    else:
-        return d.get_data()
+
+    d.reduce_keypoints()
+    d.scale_and_center()
+    d.remove_confidence()
+    d.flatten_features()
+    #d.reduce_labels()
+    return d.get_data()
         
 
 def random_flip(x, y):
@@ -104,7 +94,7 @@ def random_flip(x, y):
 def random_noise(x, y):
     time_steps = tf.shape(x)[0]
     n_features = tf.shape(x)[1]
-    noise = tf.random.normal((time_steps, n_features), mean=0.0, stddev=0.03, dtype=tf.float64)
+    noise = tf.random.normal((time_steps, n_features), mean=0.0, stddev=0.03, dtype=tf.float32)
     x = x + noise
     return x, y
 

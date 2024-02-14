@@ -22,7 +22,7 @@ openpose_coco:
     CLASSES: 33
     FRAMES: 30
 
-LABELS: ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
+LABELS_VO: ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
          'attach drawer back panel', 'attach drawer side panel', 'attach shelf to table', 'flip shelf',
          'flip table', 'flip table top', 'insert drawer pin', 'lay down back panel', 'lay down bottom panel',
          'lay down front panel', 'lay down leg', 'lay down shelf', 'lay down side panel', 'lay down table top',
@@ -30,9 +30,8 @@ LABELS: ['NA', 'align leg screw with table thread', 'align side panel holes with
          'pick up shelf', 'pick up side panel', 'pick up table top', 'position the drawer right side up', 'push table',
          'push table top', 'rotate table', 'slide bottom of drawer', 'spin leg', 'tighten leg']
 
-#---- AUGMENTATION
-FLIP_P: 0.8
-RN_STD: 0.03
+LABELS_V: ['NA', 'align', 'attach', 'flip', 'insert', 'lay down', 'other', 'pick up', 'position', 'push', 'rotate',
+           'slide', 'spin', 'tighten']
 
 #---- MODEL
 MODEL_SIZE: 'nulla'
@@ -40,7 +39,7 @@ micro:
     N_HEADS: 1
     N_LAYERS: 4
     EMBED_DIM: 64
-    DROPOUT: 0.6
+    DROPOUT: 0.3
     MLP: 256
 small:    
     N_HEADS: 2
@@ -58,7 +57,8 @@ base:
 
 #---- TRAINING SETTINGS 
 SCHEDULER: True
-N_EPOCHS: 100
+VELOCITY: True
+N_EPOCHS: 350
 BATCH_SIZE: 256
 WEIGHT_DECAY: 0.0001
 WARMUP_PERC: 0.3

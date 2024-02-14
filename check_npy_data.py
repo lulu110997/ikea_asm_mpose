@@ -11,45 +11,21 @@ import numpy as np
 import tensorflow as tf
 tf.keras.utils.set_random_seed(9)
 
-LABELS = ['NA',
-          'align leg screw with table thread',
-          'align side panel holes with front panel dowels',
-          'attach drawer back panel',
-          'attach drawer side panel',
-          'attach shelf to table',
-          'flip shelf',
-          'flip table',
-          'flip table top',
-          'insert drawer pin',
-          'lay down back panel',
-          'lay down bottom panel',
-          'lay down front panel',
-          'lay down leg',
-          'lay down shelf',
-          'lay down side panel',
-          'lay down table top',
-          'other',
-          'pick up back panel',
-          'pick up bottom panel',
-          'pick up front panel',
-          'pick up leg',
-          'pick up pin',
-          'pick up shelf',
-          'pick up side panel',
-          'pick up table top',
-          'position the drawer right side up',
-          'push table',
-          'push table top',
-          'rotate table',
-          'slide bottom of drawer',
-          'spin leg',
-          'tighten leg'
-          ]
+LABELS_VO = ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
+             'attach drawer back panel', 'attach drawer side panel', 'attach shelf to table', 'flip shelf',
+             'flip table', 'flip table top', 'insert drawer pin', 'lay down back panel', 'lay down bottom panel',
+             'lay down front panel', 'lay down leg', 'lay down shelf', 'lay down side panel', 'lay down table top',
+             'other', 'pick up back panel', 'pick up bottom panel', 'pick up front panel', 'pick up leg', 'pick up pin',
+             'pick up shelf', 'pick up side panel', 'pick up table top', 'position the drawer right side up', 'push table',
+             'push table top', 'rotate table', 'slide bottom of drawer', 'spin leg', 'tighten leg']
+
+LABELS_V = ['NA', 'align', 'attach', 'flip', 'insert', 'lay down', 'other', 'pick up', 'position', 'push', 'rotate',
+            'slide', 'spin', 'tighten']
 ROOT_DIR = "/home/louis/.ikea_asm_2d_pose/openpose_coco/"
 SPLIT = "1"
-
-
-def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=9, save=False):
+LABELS = LABELS_V
+N_CLASSES = len(LABELS)
+def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=None, save=False):
     if seed is not None:
         x, y, img_path = sklearn.utils.shuffle(x, y, img_path, random_state=seed)
     try:
@@ -72,8 +48,10 @@ def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=9, save=False):
 
                 cv2.putText(frame1, str(frame_count), (20, 50), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
                 if not save:
-                    cv2.waitKey(x.shape[1])
-                    cv2.imshow('win', frame1)
+                    if frame_idx == 19:
+                        print(kp)
+                        cv2.imshow('win', frame1)
+                        cv2.waitKey(x.shape[1]*0)
                 else:
                     new_path, tmp = curr_path.split('ikea_asm_dataset_RGB_top_frames')
                     new_path = os.path.join(new_path, "labelled_images")
@@ -147,13 +125,13 @@ def get_data():
         assert X_train.shape[0] == y_train.shape[0] and len(y_train.shape) == 1
         assert X_test.shape[0] == y_test.shape[0] and len(y_test.shape) == 1
         if not ("clean" in SPLIT):
-            assert np.unique(y_train).shape[0] == 33
+            assert np.unique(y_train).shape[0] == 33 or np.unique(y_train).shape[0] == 14
 
         # Check the training features have the shape (n_frames=30, n_keypoints=18, n_coords=3)
         assert X_train.shape[1:] == (30, 18, 3)
         assert X_test.shape[1:] == (30, 18, 3)
         if not ("clean" in SPLIT):
-            assert np.unique(y_test).shape[0] == 33
+            assert np.unique(y_test).shape[0] == 33 or np.unique(y_test).shape[0] == 14
     except Exception as e:
         print(X_train.shape)
         print(y_train.shape)
@@ -182,37 +160,41 @@ def get_class_dist(y):
 
 ########################################################################################################################
 X_train, y_train, X_test, y_test, train_img_paths, test_img_paths = get_data()
+viz_imgs_with_xy(X_train[542:], y_train[542:], train_img_paths[542:])
 
-X_train_list = []
-y_train_list = []
-video_train_list = []
-ds = []
-class_weights = sklearn.utils.compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
-for i in range(33):
-    mask = np.where(y_train == i)
-    curr_x = X_train[mask]
-    curr_y = y_train[mask]
-    curr_v = train_img_paths[mask]
-
-    rep_val = 100 - curr_x.shape[0]
-    # if n_samples < 800:
-    #     curr_x = np.repeat(curr_x, 800 - n_samples, axis=0)
-    #     curr_y = np.repeat(curr_y, 800 - n_samples)
-    #     curr_v = np.repeat(curr_v, 800 - n_samples, axis=0)
-
-    X_train_list.append(curr_x)
-    y_train_list.append(curr_y)
-    video_train_list.append(curr_v)
-    tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask]))
-    if rep_val > 0:
-        tmp_ds = tmp_ds.repeat(math.ceil(100.0 / curr_x.shape[0])).shuffle(50)
-
-    ds.append(tmp_ds)
-
-resampled_ds = tf.data.Dataset.sample_from_datasets(ds, weights=33*[1.0/33], stop_on_empty_dataset=True,
-                                                    rerandomize_each_iteration=True)
-label_count = 33*[0]
-for i in resampled_ds.as_numpy_iterator():
-    label_count[i[1]] += 1
-print(label_count, sum(label_count))
+# X_train_list = []
+# y_train_list = []
+# video_train_list = []
+# ds = []
+# class_weights = sklearn.utils.compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
+# THRESH = 500
+# for i in range(N_CLASSES):
+#     mask = np.where(y_train == i)
+#     curr_x = X_train[mask]
+#     curr_y = y_train[mask]
+#     curr_v = train_img_paths[mask]
+#
+#
+#     X_train_list.append(curr_x)
+#     y_train_list.append(curr_y)
+#     video_train_list.append(curr_v)
+#     tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask]))
+#     rep_val = THRESH - tmp_ds.cardinality()
+#     tmp_ds = tmp_ds.shuffle(tmp_ds.cardinality()//2, reshuffle_each_iteration=True).repeat()
+#
+#     ds.append(tmp_ds)
+#
+# resampled_ds = tf.data.Dataset.sample_from_datasets(ds, stop_on_empty_dataset=True, rerandomize_each_iteration=True)
+#
+# for a in range(5):
+#     label_count = N_CLASSES*[0]
+#     c = 0
+#     for i in resampled_ds.as_numpy_iterator():
+#         if c==0:
+#             print(i[0][0][0])
+#             c=1
+#         if max(label_count) == THRESH:
+#             break
+#         label_count[i[1]] += 1
+#     print(label_count, sum(label_count))
 

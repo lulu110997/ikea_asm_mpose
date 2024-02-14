@@ -14,15 +14,19 @@ import tensorflow as tf
 from AcT_utils.tools import read_yaml, Logger
 from AcT_utils.trainer import Trainer
 
+MODEL_SZ = "micro"
+
 # LOAD CONFIG 
 parser = argparse.ArgumentParser(description='Process some input')
 parser.add_argument('--config', default='AcT_utils/config.yaml', type=str, help='Config path', required=False)
 parser.add_argument('--test', '-t', action='store_true', help='Run a test (specify weights in the config file)') 
 parser.add_argument('--benchmark','-b', action='store_true', help='Run a benchmark') 
 parser.add_argument('--search','-s', action='store_true', help='Run a random search')
-    
 args = parser.parse_args()
+
 config = read_yaml(args.config)
+
+# Save dirs for results, bin and logs
 now = datetime.now()
 now = now.strftime("%y%m%d%H%M%S")
 results_dirs = []
@@ -42,25 +46,25 @@ if len(gpus) == 0:
 tf.config.experimental.set_visible_devices(gpus[config['GPU']], 'GPU')
 tf.config.experimental.set_memory_growth(gpus[config['GPU']], True)
 
-for i in ["micro", "small"]:
-    logger = Logger(results_dirs[2] + f'/{i}_log.txt')
-    # SET TRAINER
-    trainer = Trainer(config, logger, i, results_dirs)
 
-    if True:
-        # RUN BENCHMARK
-        trainer.do_benchmark()
+logger = Logger(results_dirs[2] + f'/{MODEL_SZ}_log.txt')
+# SET TRAINER
+trainer = Trainer(config, logger, MODEL_SZ, results_dirs)
 
-    elif args.search:
-        # RUN RANDOM SEARCH
-        trainer.do_random_search()
+if True:
+    # RUN BENCHMARK
+    trainer.do_benchmark()
 
-    elif args.test:
-        # RUN TEST
-        trainer.do_test()
+elif args.search:
+    # RUN RANDOM SEARCH
+    trainer.do_random_search()
 
-    else:
-        print('Nothing to do! Specify one of the following arguments:')
-        print('\t --benchmark [-b]: run a benchmark')
-        print('\t --search [-s]: run a random search')
-        print('\t --test [-t]: run a test')
+elif args.test:
+    # RUN TEST
+    trainer.do_test()
+
+else:
+    print('Nothing to do! Specify one of the following arguments:')
+    print('\t --benchmark [-b]: run a benchmark')
+    print('\t --search [-s]: run a random search')
+    print('\t --test [-t]: run a test')
