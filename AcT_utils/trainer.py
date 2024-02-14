@@ -77,7 +77,7 @@ class Trainer:
         if self.norm_input is None:
             x = tf.keras.layers.Dense(self.d_model)(inputs)  # Projection layer
         else:
-            x = self.norm_input(inputs); print("normalise")
+            x = self.norm_input(inputs); self.logger.save_log("normalise")
             x = tf.keras.layers.Dense(self.d_model)(x)  # Projection layer
 
         x = PatchClassEmbedding(self.d_model, self.N_FRAMES, pos_emb=None)(x)  # Positional embedding layer
@@ -98,6 +98,7 @@ class Trainer:
         #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
         
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE) if self.train_len > 7000 else 24
+        self.logger.save_log(f"train steps: {self.train_steps}")
 
         lr = CustomSchedule(self.d_model,
                                  warmup_steps=self.train_steps * self.N_EPOCHS * self.WARMUP_PERC,
@@ -116,6 +117,7 @@ class Trainer:
         return
 
     def resample(self, x, y):
+        self.logger.save_log("resampled")
         ds = []
         for i in range(self.N_CLASSES):
             mask = np.where(y == i)
@@ -132,8 +134,8 @@ class Trainer:
         # self.norm_input = tf.keras.layers.Normalization()
         # self.norm_input.adapt(X_train)
 
-        self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)); self.train_len = len(y_train)
-        # self.ds_train = self.resample(X_train, y_train); self.train_len = 6500
+        # self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)); self.train_len = len(y_train)
+        self.ds_train = self.resample(X_train, y_train); self.train_len = 6500
 
         # self.class_weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
                                                                   # classes=np.unique(y_train), y=y_train)
@@ -160,7 +162,7 @@ class Trainer:
         print("start_training")
         history = self.model.fit(self.ds_train,
                                  epochs=self.N_EPOCHS, initial_epoch=0,
-                                 validation_data=self.ds_test,
+                                 validation_data=self.ds_test, steps_per_epoch=24,
                                  callbacks=[self.checkpointer])
                                  #,class_weight=self.class_weights)
         h = (history.history['loss'], history.history['val_loss'],
@@ -178,7 +180,7 @@ class Trainer:
 
             self.split = split
 
-            acc, bal_acc, f1, auc = self.do_training()
+            acc, bal_acc, f1, auc, loss = self.do_training()
 
             np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
             np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
@@ -204,7 +206,7 @@ class Trainer:
         filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_conf_matr"
         _pw.save_pickle(os.path.join(self.results_dir, filename), conf_matr)
         self.save_plots()
-        return accuracy_test, balanced_accuracy, f1, auc
+        return accuracy_test, balanced_accuracy, f1, auc, loss
 
     def do_test(self):
         for split in range(1, self.N_SPLITS + 1):
@@ -220,9 +222,8 @@ class Trainer:
             self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
 
     def do_random_search(self):
-        pruner = optuna.pruners.HyperbandPruner()
         self.study = optuna.create_study(study_name='{}_random_search'.format(self.DATA_TYPE),
-                                         direction="maximize", pruner=pruner)
+                                         directions=["minimize", "maximize"])
         self.study.optimize(lambda trial: self.objective(trial),
                             n_trials=self.N_TRIALS)
 
@@ -242,25 +243,45 @@ class Trainer:
         for key, value in self.study.best_trial.params.items():
             self.logger.save_log(f"    {key}: {value}")
 
-        joblib.dump(self.study,
-                    f"{self.results_dir}/{self.DATA_TYPE}_{self.DATASET}_random_search_{str(self.study.best_trial.value)}.pkl")
+        self.logger.save_log("Saving study...")
+        # joblib.dump(self.study,
+        #             f"{self.results_dir}/{self.DATA_TYPE}_{self.DATASET}_random_search_{str(self.study.best_trial.value)}.pkl")
 
     def objective(self, trial):
         self.trial = trial
         self.get_random_hp()
-        _, bal_acc = self.do_training()
-        return bal_acc
+        acc, bal_acc, f1, auc, loss = self.do_training()
+        self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
+        self.logger.save_log(f"Accuracy: {acc}")
+        self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
+        self.logger.save_log(f"f1: {f1}")
+        self.logger.save_log(f"auc: {auc}")
+        return loss, f1
 
     def get_random_hp(self):
-        self.N_EPOCHS = int(self.trial.suggest_discrete_uniform("EPOCHS", 50, 100, 10))
-        self.WARMUP_PERC = self.trial.suggest_discrete_uniform("WARMUP_PERC", 0.1, 0.4, 0.1)
-        self.WEIGHT_DECAY = self.trial.suggest_discrete_uniform("WD", 1e-5, 1e-3, 1e-5)
-        self.STEP_PERC = self.trial.suggest_discrete_uniform("STEP_PERC", 0.1, 0.4, 0.1)
+        self.N_EPOCHS = self.trial.suggest_int("EPOCHS", 50, 350, step=10)
+        self.WARMUP_PERC = self.trial.suggest_float("WARMUP_PERC", 0.1, 0.4, step=0.05)
+        self.WEIGHT_DECAY = self.trial.suggest_float("WD", 1e-6, 1e-3, step=1e-5)
+        self.STEP_PERC = self.trial.suggest_float("STEP_PERC", 0.6, 0.8, step=0.05)
 
-        self.logger.save_log('\nEPOCHS: {}'.format(self.N_EPOCHS))
+        self.dropout = self.trial.suggest_float("dropout", 0.2, 0.8, step=0.05)
+        self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
+        self.d_ff = self.trial.suggest_int("d_ff", 32, 256, step=16)
+        self.n_heads = self.trial.suggest_int("n_heads", 1, 2, step=1)
+        self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
+        self.d_model = self.trial.suggest_int("d_model", 40, 64, step=2)
+
+        self.logger.save_log('EPOCHS: {}'.format(self.N_EPOCHS))
         self.logger.save_log('WARMUP_PERC: {:.2e}'.format(self.WARMUP_PERC))
         self.logger.save_log('WEIGHT_DECAY: {:.2e}'.format(self.WEIGHT_DECAY))
-        self.logger.save_log('LR_MULT: {:.2e}'.format(self.STEP_PERC))
+        self.logger.save_log('STEP_PERC: {:.2e}'.format(self.STEP_PERC))
+
+        self.logger.save_log('dropout: {:.2e}'.format(self.dropout))
+        self.logger.save_log('MLP: {}'.format(self.mlp_head_size))
+        self.logger.save_log('d_ff: {}'.format(self.d_ff))
+        self.logger.save_log('n_heads: {}'.format(self.n_heads))
+        self.logger.save_log('n_layers: {}'.format(self.n_layers))
+        self.logger.save_log('d_model: {}'.format(self.d_model))
 
     def save_plots(self):
         filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_history.pickle"

@@ -51,13 +51,16 @@ logger = Logger(results_dirs[2] + f'/{MODEL_SZ}_log.txt')
 # SET TRAINER
 trainer = Trainer(config, logger, MODEL_SZ, results_dirs)
 
-if True:
+if args.benchmark:
     # RUN BENCHMARK
     trainer.do_benchmark()
 
 elif args.search:
     # RUN RANDOM SEARCH
-    trainer.do_random_search()
+    try:
+        trainer.do_random_search()
+    except Exception as e:
+        raise e
 
 elif args.test:
     # RUN TEST

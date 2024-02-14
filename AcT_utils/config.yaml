@@ -65,7 +65,7 @@ WARMUP_PERC: 0.3
 STEP_PERC: 0.8
 
 #---- RANDOM SEARCH
-N_TRIALS: 5
+N_TRIALS: 100
 
 #---- TEST SETTINGS
 WEIGHTS: '/home/louis/Data/Fernandez_HAR/AcT_pretrained_weights/openpose/micro/AcT_micro.h5'
