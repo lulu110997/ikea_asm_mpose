@@ -1,0 +1,24 @@
+- Class weights (normalise)
+	- why loss fn not matching anymore
+- Resample (how to choose 'focus points'/giving up on classes with not enough samples based on distribution)
+- Input normalisation
+	- velocity obtained using normalised and scaled joint positions
+- Augmentation? Start with none? (eg proj with Tim: using augmentation hurt performance, possible that the data is noisy enough as is and augmantation may exacerbate issue )
+- Simplify
+	- Which hyperparameters and changes to focus on?
+		for prevention of overfitting: Dropout, Weight regulariser, class weights, label smoothing
+		for minimising loss: lr, weight decay, schedulers (warmup steps, decay step)
+	- Bigger data compared to mpose = we need more hyperparams but it seems that even though IKEA-ASM is bigger overfitting occurs due to imbalance? How to deal?
+		reduce # of params
+
+TODO:
+- 
+
+
+Double check
+- Weight decay sched
+- Velocity obtained from normalised and scaled positions
+- Resampling
+- Last layer and weight loading
+
+https://stats.stackexchange.com/questions/395332/validation-loss-increases-while-training-loss-decreaseP
