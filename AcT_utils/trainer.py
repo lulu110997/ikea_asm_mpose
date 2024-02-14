@@ -248,6 +248,7 @@ class Trainer:
         #             f"{self.results_dir}/{self.DATA_TYPE}_{self.DATASET}_random_search_{str(self.study.best_trial.value)}.pkl")
 
     def objective(self, trial):
+        tf.keras.backend.clear_session()
         self.trial = trial
         self.get_random_hp()
         acc, bal_acc, f1, auc, loss = self.do_training()
@@ -267,7 +268,6 @@ class Trainer:
         self.dropout = self.trial.suggest_float("dropout", 0.2, 0.8, step=0.05)
         self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
         self.d_ff = self.trial.suggest_int("d_ff", 32, 256, step=16)
-        self.n_heads = self.trial.suggest_int("n_heads", 1, 2, step=1)
         self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
         self.d_model = self.trial.suggest_int("d_model", 40, 64, step=2)
 
@@ -279,7 +279,6 @@ class Trainer:
         self.logger.save_log('dropout: {:.2e}'.format(self.dropout))
         self.logger.save_log('MLP: {}'.format(self.mlp_head_size))
         self.logger.save_log('d_ff: {}'.format(self.d_ff))
-        self.logger.save_log('n_heads: {}'.format(self.n_heads))
         self.logger.save_log('n_layers: {}'.format(self.n_layers))
         self.logger.save_log('d_model: {}'.format(self.d_model))
 
