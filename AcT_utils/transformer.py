@@ -130,7 +130,6 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         self.dropout1 = tf.keras.layers.Dropout(self.dropout)
         self.dropout2 = tf.keras.layers.Dropout(self.dropout)
 
-	
     def call(self, x, training):
         attn_output, _ = self.mha(x, x, x, None)  # (batch_size, input_seq_len, d_model)
             
