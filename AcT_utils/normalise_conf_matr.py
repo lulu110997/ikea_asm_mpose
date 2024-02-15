@@ -40,3 +40,20 @@ else:
     plt.show()
 
 plt.close('all')
+
+# PATH = "/home/louis/Git/ikea_asm_mpose/240214164203_with_f1macro_resampled/results/model_micro_data_2d_body_history.pickle"
+# history = _pw.open_pickle(PATH)
+# print(len(history))
+# train_loss, val_loss, train_acc, val_acc, f1, val_f1_score, *_ = history
+# fig, (ax1, ax2) = plt.subplots(1, 2)
+# fig.suptitle(f"Ls")
+# fig.set_size_inches(10.8, 7.2)
+# ax1.plot(train_loss, label="Training loss")
+# ax1.plot(val_loss, label="Validation loss")
+# ax1.set_ylabel("Loss", color='r', fontsize=14)
+# ax1.legend()
+# ax2.plot(f1, label="Training f1")
+# ax2.plot(val_f1_score, label="Validation f1")
+# ax2.set_ylabel("Accuracy", color='r', fontsize=14)
+# ax2.legend()
+# plt.show()

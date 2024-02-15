@@ -26,7 +26,7 @@ class Logger(object):
     def save_log(self, text):
         print(text)
         with open(self.file, 'a') as f:
-            f.write(text + '\n')
+            f.write(f"{text}\n")
 
 # PLOT POSE        
 def plot_pose(pose):
