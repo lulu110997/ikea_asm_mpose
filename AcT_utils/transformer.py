@@ -18,7 +18,7 @@ import tensorflow as tf
 import numpy as np
 import copy
 
-
+L2_REG = tf.keras.regularizers.l2(0.0001)
 def scaled_dot_product_attention(q, k, v, mask):
     """Calculate the attention weights.
     q, k, v must have matching leading dimensions.
@@ -56,8 +56,8 @@ def scaled_dot_product_attention(q, k, v, mask):
 
 def point_wise_feed_forward_network(d_model, d_ff, activation):
     return tf.keras.Sequential([
-      tf.keras.layers.Dense(d_ff, activation=activation),  # (batch_size, seq_len, dff)
-      tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
+      tf.keras.layers.Dense(d_ff, activation=activation, kernel_regularizer=L2_REG),  # (batch_size, seq_len, dff)
+      tf.keras.layers.Dense(d_model, kernel_regularizer=L2_REG)  # (batch_size, seq_len, d_model)
     ])
 
 
@@ -68,11 +68,11 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         self.d_model = d_model
         self.depth = depth
 
-        self.wq = tf.keras.layers.Dense(d_model)
-        self.wk = tf.keras.layers.Dense(d_model)
-        self.wv = tf.keras.layers.Dense(d_model)
+        self.wq = tf.keras.layers.Dense(d_model, kernel_regularizer=L2_REG)
+        self.wk = tf.keras.layers.Dense(d_model, kernel_regularizer=L2_REG)
+        self.wv = tf.keras.layers.Dense(d_model, kernel_regularizer=L2_REG)
 
-        self.dense = tf.keras.layers.Dense(d_model)
+        self.dense = tf.keras.layers.Dense(d_model, kernel_regularizer=L2_REG)
 
     def split_heads(self, x, batch_size):
         """Split the last dimension into (num_heads, depth).
