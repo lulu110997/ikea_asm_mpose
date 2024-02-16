@@ -37,10 +37,10 @@ LABELS_V: ['NA', 'align', 'attach', 'flip', 'insert', 'lay down', 'other', 'pick
 MODEL_SIZE: 'nulla'
 micro:        
     N_HEADS: 1
-    N_LAYERS: 3 #4
+    N_LAYERS: 4
     EMBED_DIM: 64
-    DROPOUT: 0.1 #0.3
-    MLP: 160 #256
+    DROPOUT: 0.1
+    MLP: 256
 small:    
     N_HEADS: 2
     N_LAYERS: 5
