@@ -94,6 +94,7 @@ class MPOSE():
             self.X_test = data[2]
             self.y_test = data[3]
         else:
+            print(f"path to data: {self.data_dir + self.pose_extractor + '/' + self.split + '/y_test.npy'}")
             self.X_train = np.load(self.data_dir + self.pose_extractor + '/' + self.split + '/X_train.npy')
             self.y_train = np.load(self.data_dir + self.pose_extractor + '/' + self.split + '/y_train.npy')
             self.X_test = np.load(self.data_dir + self.pose_extractor + '/' + self.split + '/X_test.npy') 

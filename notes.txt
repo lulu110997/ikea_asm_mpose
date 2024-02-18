@@ -12,7 +12,7 @@
 		reduce # of params
 
 TODO:
-- 
+- mercury16
 
 
 Double check
