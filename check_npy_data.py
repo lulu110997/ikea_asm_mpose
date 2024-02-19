@@ -48,10 +48,8 @@ def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=None, save=False)
 
                 cv2.putText(frame1, str(frame_count), (20, 50), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
                 if not save:
-                    if frame_idx == 19:
-                        print(kp)
-                        cv2.imshow('win', frame1)
-                        cv2.waitKey(x.shape[1]*0)
+                    cv2.imshow('win', frame1)
+                    cv2.waitKey(x.shape[1]*3)
                 else:
                     new_path, tmp = curr_path.split('ikea_asm_dataset_RGB_top_frames')
                     new_path = os.path.join(new_path, "labelled_images")
@@ -160,7 +158,8 @@ def get_class_dist(y):
 
 ########################################################################################################################
 X_train, y_train, X_test, y_test, train_img_paths, test_img_paths = get_data()
-viz_imgs_with_xy(X_train[542:], y_train[542:], train_img_paths[542:])
+viz_imgs_with_xy(X_train, y_train, train_img_paths, label_to_check='push')
+# viz_imgs_with_xy(X_test, y_test, test_img_paths, label_to_check='push')
 
 # X_train_list = []
 # y_train_list = []

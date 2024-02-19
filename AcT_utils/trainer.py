@@ -88,19 +88,20 @@ class Trainer:
         x = transformer(x)  # Transformer
         x = tf.keras.layers.Lambda(lambda x: x[:, 0, :])(x)  # Obtain cls
         x = tf.keras.layers.Dense(self.mlp_head_size, kernel_regularizer=self.l2_reg)(x)  # Dense layer
-        outputs = tf.keras.layers.Dense(20, kernel_regularizer=self.l2_reg)(x)  # Classification layer
+        outputs = tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg)(x)  # Classification layer
         return tf.keras.models.Model(inputs, outputs)
 
     
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
         self.model = self.build_act(transformer)
-        weights = "AcT_small_1_0.h5"; weights = weights.replace("small", self.model_size)
-        self.model.load_weights(weights); self.logger.save_log('transfer learning')
-        self.model = tf.keras.Model(inputs=self.model.inputs, #self.norm_input2(self.model.inputs)
-                                    outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
-        for layer in self.model.layers[:-1]:
-            layer.trainable = False
+        weights = "240216171845_TL_last_layer/bin/micro_2d_body.h5"#; weights = weights.replace("small", self.model_size)
+        self.model.load_weights(weights); self.logger.save_log(f'transfer learning w/ {weights}')
+        # self.model = tf.keras.Model(inputs=self.model.inputs, #self.norm_input2(self.model.inputs)
+        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
+        # for layer in self.model.layers[:-1]:
+        #     layer.trainable = False
+        # self.model.layers[-1].trainable = False
         # self.AcT = self.build_act(transformer)
         # weights = "AcT_small_1_0.h5"; self.logger.save_log('transfer learning')
         # weights = weights.replace("small", self.model_size)
@@ -166,7 +167,7 @@ class Trainer:
         self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
                                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_flip, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        #self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         # self.ds_train = self.ds_train.shuffle(3000, reshuffle_each_iteration=True)
         self.ds_train = self.ds_train.batch(self.BATCH_SIZE)
         self.ds_train = self.ds_train.prefetch(tf.data.experimental.AUTOTUNE)

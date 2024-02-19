@@ -4,7 +4,7 @@ import numpy as np
 import pickle_wrapper as _pw
 
 
-PATH = "/240214182212_layernorm/results/model_micro_data_2d_body_conf_matr.pickle"
+PATH = "/home/louis/Git/ikea_asm_mpose/240214164203_with_f1macro_resampled/results/model_micro_data_2d_body_conf_matr.pickle"
 SAVE_PATH = True
 LABELS_VO = ['NA', 'align leg screw with table thread', 'align side panel holes with front panel dowels',
              'attach drawer back panel', 'attach drawer side panel', 'attach shelf to table', 'flip shelf',
