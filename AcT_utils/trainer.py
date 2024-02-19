@@ -38,7 +38,7 @@ class Trainer:
         self.trial = None
         self.norm_input = None
         self.logger = logger
-        self.split = config["SUBDIR"]; self.logger.save_log(f"{self.split}")
+        self.split = config["SUBDIR"]
         L2_PENALTY = 0.0005
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
         self.model_size = model_sz #self.config['MODEL_SIZE']
@@ -93,13 +93,12 @@ class Trainer:
     
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
-        self.model = self.build_act(transformer)
-        weights = "AcT_small_1_0.h5"; weights = weights.replace("small", self.model_size)
-        self.model.load_weights(weights); self.logger.save_log('transfer learning')
-        self.model = tf.keras.Model(inputs=self.model.inputs, #self.norm_input2(self.model.inputs)
-                                    outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
-        # for layer in self.model.layers[:-1]:
-        #     layer.trainable = False
+        # self.model = self.build_act(transformer)
+        # weights = "AcT_small_1_0.h5"; weights = weights.replace("small", self.model_size)
+        # self.model.load_weights(weights); self.logger.save_log('transfer learning')
+        # self.model = tf.keras.Model(inputs=self.model.inputs,
+        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
+
         # self.AcT = self.build_act(transformer)
         # weights = "AcT_small_1_0.h5"; self.logger.save_log('transfer learning')
         # weights = weights.replace("small", self.model_size)
@@ -110,27 +109,25 @@ class Trainer:
         # self.model.add(self.norm_input2)
         # self.model.add(self.AcT_mod)
 
-        # self.model = tf.keras.Model(inputs=self.model.inputs,
-        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE)
         self.logger.save_log(f"train steps: {self.train_steps}")
-
-        lr = tf.keras.optimizers.schedules.CosineDecay(initial_learning_rate=1e-7,
+        INIT_LR = 5e-7
+        ALPHA = 1e-2
+        W_TARG = 1e-3
+        self.logger.save_log(f"INIT_LR: {INIT_LR} \nALPHA: {ALPHA} \nW_TARG: {W_TARG}")
+        lr = tf.keras.optimizers.schedules.CosineDecay(initial_learning_rate=INIT_LR,
                                                        decay_steps=self.STEP_PERC*self.N_EPOCHS*self.train_steps,
-                                                       alpha=1e-2,
-                                                       warmup_target=1e-3,
+                                                       alpha=ALPHA,
+                                                       warmup_target=W_TARG,
                                                        warmup_steps=self.WARMUP_PERC*self.N_EPOCHS*self.train_steps)
         loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.262)
-        optim = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=self.WEIGHT_DECAY)
+        optim = tf.keras.optimizers.AdamW(lr, weight_decay=self.WEIGHT_DECAY)
 
         self.model.compile(optimizer=optim,
                            loss=loss,
                            metrics=[tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
                                     tf.keras.metrics.F1Score(average="macro"),
                                     tf.keras.metrics.AUC(multi_label=True, from_logits=True, num_labels=self.N_CLASSES)])
-        for layer in self.model.layers:
-            self.logger.save_log(f"{layer.name}, {len(layer.trainable_weights)}, {len(layer.non_trainable_weights)}")
-        self.logger.save_log("")
         self.name_model_bin = f"{self.model_size}_{self.DATA_TYPE}.h5"
         self.checkpointer = tf.keras.callbacks.ModelCheckpoint(self.bin_path + self.name_model_bin,  #"{epoch:02d}_"
                                                                monitor="val_accuracy", mode="max",
@@ -152,12 +149,11 @@ class Trainer:
     def get_data(self):
 
         X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.split, velocity=self.velocity)
-        print(X_train.shape)
         self.norm_input2 = tf.keras.layers.Normalization(axis=None)
         self.norm_input2.adapt(X_train)
 
         # self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)); self.train_len = len(y_train)
-        self.ds_train = self.resample(X_train, y_train); self.train_len = 5628
+        self.ds_train = self.resample(X_train, y_train); self.train_len = 5628 #23286
 
         # self.class_weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
                                                                   # classes=np.unique(y_train), y=y_train)
@@ -166,7 +162,7 @@ class Trainer:
         self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
                                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_flip, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        #self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         # self.ds_train = self.ds_train.shuffle(3000, reshuffle_each_iteration=True)
         self.ds_train = self.ds_train.batch(self.BATCH_SIZE)
         self.ds_train = self.ds_train.prefetch(tf.data.experimental.AUTOTUNE)
