@@ -127,9 +127,9 @@ def get_data():
         if not ("clean" in SPLIT):
             assert np.unique(y_train).shape[0] == 33 or np.unique(y_train).shape[0] == 14
 
-        # Check the training features have the shape (n_frames=30, n_keypoints=18, n_coords=3)
-        assert X_train.shape[1:] == (30, 18, 3)
-        assert X_test.shape[1:] == (30, 18, 3)
+        # Check the training features have the shape (n_frames=30, n_keypoints=18, n_coords=3). kp=60 for hands
+        assert X_train.shape[1:] == (30, 18, 3) or X_train.shape[1:] == (30, 60, 3)
+        assert X_test.shape[1:] == (30, 18, 3) or X_test.shape[1:] == (30, 60, 3)
         if not ("clean" in SPLIT):
             assert np.unique(y_test).shape[0] == 33 or np.unique(y_test).shape[0] == 14
     except Exception as e:
