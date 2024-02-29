@@ -50,6 +50,7 @@ class Trainer:
         self.activation = tf.nn.gelu
         self.d_model = 64 * self.n_heads
         self.d_ff = 4 * self.d_model  # Output size of the first non-linear layer in the transformer encoder
+        self.label_smoothing = config['LABEL_SMOOTHING']
         assert self.d_model == self.embed_dim  # Should be the same
 
         self.DATASET = config["DATASET"]
@@ -61,8 +62,6 @@ class Trainer:
         self.WEIGHT_DECAY = config["WEIGHT_DECAY"]
         self.WARMUP_PERC = config["WARMUP_PERC"]
         self.STEP_PERC = config["STEP_PERC"]
-        self.N_FOLD = config["FOLDS"]
-        self.N_SPLITS = config["SPLITS"]
         self.LABELS = config["LABELS_V"]
         self.N_FRAMES = config[self.DATASET]["FRAMES"]
         self.N_KEYPOINTS = config[self.DATASET]["KEYPOINTS"]
@@ -88,40 +87,22 @@ class Trainer:
         x = transformer(x)  # Transformer
         x = tf.keras.layers.Lambda(lambda x: x[:, 0, :])(x)  # Obtain cls
         x = tf.keras.layers.Dense(self.mlp_head_size, kernel_regularizer=self.l2_reg)(x)  # Dense layer
-        outputs = tf.keras.layers.Dense(20, kernel_regularizer=self.l2_reg)(x)  # Classification layer
+        outputs = tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg)(x)  # Classification layer
         return tf.keras.models.Model(inputs, outputs)
 
     
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
         self.model = self.build_act(transformer)
-        weights = "AcT_small_1_0.h5"; weights = weights.replace("small", self.model_size)
-        self.model.load_weights(weights); self.logger.save_log('transfer learning')
-        self.model = tf.keras.Model(inputs=self.model.inputs, #self.norm_input2(self.model.inputs)
-                                    outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
-        for layer in self.model.layers[:-1]:
-            layer.trainable = False
-        # self.AcT = self.build_act(transformer)
-        # weights = "AcT_small_1_0.h5"; self.logger.save_log('transfer learning')
-        # weights = weights.replace("small", self.model_size)
-        # self.AcT.load_weights(weights)
-        # self.AcT_mod = tf.keras.Model(inputs=self.AcT.inputs,
-        #                               outputs=tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg)(self.AcT.layers[-2].output))
-        # self.model = tf.keras.models.Sequential()
-        # self.model.add(self.norm_input2)
-        # self.model.add(self.AcT_mod)
-
-        # self.model = tf.keras.Model(inputs=self.model.inputs,
-        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE)
         self.logger.save_log(f"train steps: {self.train_steps}")
 
         lr = tf.keras.optimizers.schedules.CosineDecay(initial_learning_rate=5e-7,
                                                        decay_steps=self.STEP_PERC*self.N_EPOCHS*self.train_steps,
                                                        alpha=1e-2,
-                                                       warmup_target=5e-4,
+                                                       warmup_target=1e-3,
                                                        warmup_steps=self.WARMUP_PERC*self.N_EPOCHS*self.train_steps)
-        loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.262)
+        loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=self.label_smoothing)
         optim = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=self.WEIGHT_DECAY)
 
         self.model.compile(optimizer=optim,
@@ -153,21 +134,15 @@ class Trainer:
     def get_data(self):
 
         X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.split, velocity=self.velocity)
-        self.norm_input2 = tf.keras.layers.Normalization(axis=None)
-        self.norm_input2.adapt(X_train)
+        self.norm_input = tf.keras.layers.Normalization(axis=None)
+        self.norm_input.adapt(X_train)
 
         # self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)); self.train_len = len(y_train)
         self.ds_train = self.resample(X_train, y_train); self.train_len = 5628
-
-        # self.class_weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
-                                                                  # classes=np.unique(y_train), y=y_train)
-        # self.class_weights = {key: val for key, val in enumerate(weights)}
-
         self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
                                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_flip, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        #self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        # self.ds_train = self.ds_train.shuffle(3000, reshuffle_each_iteration=True)
+        self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.batch(self.BATCH_SIZE)
         self.ds_train = self.ds_train.prefetch(tf.data.experimental.AUTOTUNE)
 
