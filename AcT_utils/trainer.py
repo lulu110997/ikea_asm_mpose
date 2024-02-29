@@ -161,7 +161,6 @@ class Trainer:
                                  epochs=self.N_EPOCHS, initial_epoch=0,
                                  validation_data=self.ds_test, steps_per_epoch=self.train_steps,
                                  callbacks=[self.checkpointer])
-                                 #,class_weight=self.class_weights)
         h = (history.history['loss'], history.history['val_loss'],
              history.history['accuracy'], history.history['val_accuracy'],
              history.history["f1_score"], history.history["val_f1_score"],
@@ -221,7 +220,7 @@ class Trainer:
 
     def do_random_search(self):
         self.study = optuna.create_study(study_name='{}_random_search'.format(self.DATA_TYPE),
-                                         directions=["minimize", "maximize"])
+                                         directions=["maximize", "maximize"])
         self.study.optimize(lambda trial: self.objective(trial),
                             n_trials=self.N_TRIALS)
 
@@ -255,14 +254,14 @@ class Trainer:
         self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
         self.logger.save_log(f"f1: {f1}")
         self.logger.save_log(f"auc: {auc}\n")
-        return loss, f1
+        return bal_acc, f1
 
     def get_random_hp(self):
-        self.WEIGHT_DECAY = self.trial.suggest_float("WD", 1e-4, 1e-3, log=True)
-        self.STEP_PERC = self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05)
+        self.WEIGHT_DECAY = round(self.trial.suggest_float("WD", 1e-4, 1e-3, log=True), 5)
+        self.STEP_PERC = round(self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05), 5)
 
-        self.label_smoothing = self.trial.suggest_float("label_smoothing", 0.01, 0.3)
-        self.dropout = self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05)
+        self.label_smoothing = round(self.trial.suggest_float("label_smoothing", 0.01, 0.3), 5)
+        self.dropout = round(self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05), 5)
         self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
         self.d_ff = self.trial.suggest_int("d_ff", 32, 256, step=16)
         self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
