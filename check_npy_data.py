@@ -25,12 +25,14 @@ ROOT_DIR = "/home/louis/.ikea_asm_2d_pose/openpose_coco/"
 SPLIT = "1"
 LABELS = LABELS_V
 N_CLASSES = len(LABELS)
+
+
 def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=None, save=False):
     if seed is not None:
         x, y, img_path = sklearn.utils.shuffle(x, y, img_path, random_state=seed)
     try:
         cv2.namedWindow("win")
-        input("press a key when ready")
+        # input("press enter when ready")
         for sample_idx, frames in enumerate(x):
             label = LABELS[y[sample_idx]]
             if (label_to_check is not None) and (label != label_to_check):
@@ -43,15 +45,13 @@ def viz_imgs_with_xy(x, y, img_path, label_to_check=None, seed=None, save=False)
                 cv2.putText(frame1, label, (20, 20), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
 
                 for kp_idx, coords in enumerate(kp):
-                    cv2.circle(frame1, (int(coords[0]), int(coords[1])), 5, (0, 0, 255))
-                    cv2.putText(frame1, str(kp_idx), (int(coords[0]), int(coords[1])), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 255), 1)
+                    cv2.circle(frame1, (int(coords[0]), int(coords[1])), 2, (0, 0, 255))
+                    cv2.putText(frame1, str(kp_idx), (int(coords[0]), int(coords[1])), cv2.FONT_HERSHEY_TRIPLEX, 0.4, (0, 0, 255), 1)
 
                 cv2.putText(frame1, str(frame_count), (20, 50), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 255), 1)
                 if not save:
-                    if frame_idx == 19:
-                        print(kp)
-                        cv2.imshow('win', frame1)
-                        cv2.waitKey(x.shape[1]*0)
+                    cv2.imshow('win', frame1)
+                    cv2.waitKey(x.shape[1]*0)
                 else:
                     new_path, tmp = curr_path.split('ikea_asm_dataset_RGB_top_frames')
                     new_path = os.path.join(new_path, "labelled_images")
@@ -160,5 +160,6 @@ def get_class_dist(y):
 
 ########################################################################################################################
 X_train, y_train, X_test, y_test, train_img_paths, test_img_paths = get_data()
-viz_imgs_with_xy(X_train, y_train, train_img_paths, seed=9)
+# viz_imgs_with_xy(X_train, y_train, train_img_paths, seed=9)
+# viz_imgs_with_xy(X_test, y_test, test_img_paths, seed=9)
 
