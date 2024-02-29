@@ -33,12 +33,12 @@ random.seed(11)
 
 # TRAINER CLASS
 class Trainer:
-    def __init__(self, config, logger, model_sz, root_results_dir, split=1):
+    def __init__(self, config, logger, model_sz, root_results_dir):
 
         self.trial = None
         self.norm_input = None
         self.logger = logger
-        self.split = split
+        self.split = config["SUBDIR"]
         L2_PENALTY = 0.001
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
         self.model_size = model_sz #self.config['MODEL_SIZE']
@@ -200,21 +200,18 @@ class Trainer:
         return self.evaluate(weights=self.bin_path+self.name_model_bin)
 
     def do_benchmark(self):
-        for split in range(1, self.N_SPLITS + 1):
-            self.logger.save_log(f"model {self.model_size} is being trained")
+        self.logger.save_log(f"model {self.model_size} is being trained")
 
-            self.split = split
+        acc, bal_acc, f1, auc, loss = self.do_training()
 
-            acc, bal_acc, f1, auc, loss = self.do_training()
+        np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
+        np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
 
-            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
-            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
-
-            self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
-            self.logger.save_log(f"Accuracy: {acc}")
-            self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
-            self.logger.save_log(f"f1: {f1}")
-            self.logger.save_log(f"auc: {auc}\n")
+        self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
+        self.logger.save_log(f"Accuracy: {acc}")
+        self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
+        self.logger.save_log(f"f1: {f1}")
+        self.logger.save_log(f"auc: {auc}\n")
     def evaluate(self, weights=None):
         if weights is not None:
             self.model.load_weights(self.bin_path+self.name_model_bin)  
@@ -237,17 +234,15 @@ class Trainer:
         return accuracy_test, balanced_accuracy, f1, auc, loss
 
     def do_test(self):
-        for split in range(1, self.N_SPLITS + 1):
-            self.logger.save_log(f"model {self.model_size} is being trained")
-            self.split = split
+        self.logger.save_log(f"model {self.model_size} is being trained")
 
-            self.get_data()
-            self.get_model()
-            acc, bal_acc = self.evaluate()
+        self.get_data()
+        self.get_model()
+        acc, bal_acc = self.evaluate()
 
-            self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
-            self.logger.save_log(f"Accuracy: {acc}")
-            self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
+        self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
+        self.logger.save_log(f"Accuracy: {acc}")
+        self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
 
     def do_random_search(self):
         self.study = optuna.create_study(study_name='{}_random_search'.format(self.DATA_TYPE),
