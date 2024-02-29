@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import os
 
-PATH = '/home/louis/.ikea_asm_2d_pose/openpose_coco/'
+PATH = '/home/louis/.ikea_asm_2d_pose/openpose_mp/'
 SPLIT = '1'
 
 NA = [(0,), 0]
