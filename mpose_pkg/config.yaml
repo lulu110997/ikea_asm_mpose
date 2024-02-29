@@ -48,3 +48,16 @@ DATASET:
         right_foot: [10]
         left_foot: [13]
         prune: [1]
+
+    openpose_mp:
+        K: 18
+        k: 14 # averaging clustered joints
+        k_axp: 13 # removing joints used for centring and normalising
+        center_1: 1
+        center_2: 1
+        module_keypoint_1: 8
+        module_keypoint_2: 11
+        head: [ 0, 14, 15, 16, 17 ]
+        right_foot: [7, 18]
+        left_foot: [4, 39]
+        prune: [ 1 ]
