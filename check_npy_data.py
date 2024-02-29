@@ -160,41 +160,5 @@ def get_class_dist(y):
 
 ########################################################################################################################
 X_train, y_train, X_test, y_test, train_img_paths, test_img_paths = get_data()
-viz_imgs_with_xy(X_train[542:], y_train[542:], train_img_paths[542:])
-
-# X_train_list = []
-# y_train_list = []
-# video_train_list = []
-# ds = []
-# class_weights = sklearn.utils.compute_class_weight("balanced", classes=np.unique(y_train), y=y_train)
-# THRESH = 500
-# for i in range(N_CLASSES):
-#     mask = np.where(y_train == i)
-#     curr_x = X_train[mask]
-#     curr_y = y_train[mask]
-#     curr_v = train_img_paths[mask]
-#
-#
-#     X_train_list.append(curr_x)
-#     y_train_list.append(curr_y)
-#     video_train_list.append(curr_v)
-#     tmp_ds = tf.data.Dataset.from_tensor_slices((X_train[mask], y_train[mask]))
-#     rep_val = THRESH - tmp_ds.cardinality()
-#     tmp_ds = tmp_ds.shuffle(tmp_ds.cardinality()//2, reshuffle_each_iteration=True).repeat()
-#
-#     ds.append(tmp_ds)
-#
-# resampled_ds = tf.data.Dataset.sample_from_datasets(ds, stop_on_empty_dataset=True, rerandomize_each_iteration=True)
-#
-# for a in range(5):
-#     label_count = N_CLASSES*[0]
-#     c = 0
-#     for i in resampled_ds.as_numpy_iterator():
-#         if c==0:
-#             print(i[0][0][0])
-#             c=1
-#         if max(label_count) == THRESH:
-#             break
-#         label_count[i[1]] += 1
-#     print(label_count, sum(label_count))
+viz_imgs_with_xy(X_train, y_train, train_img_paths, seed=9)
 
