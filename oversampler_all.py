@@ -8,15 +8,13 @@ logging.getLogger('smote_variants').setLevel(logging.ERROR)
 import sklearn.datasets as datasets
 
 # dataset= datasets.load_wine(); X, y= dataset['data'], dataset['target']
-X_org = np.load("/home/louis/.ikea_asm_2d_pose/openpose_coco/1/X_train.npy")
-y_org = np.load("/home/louis/.ikea_asm_2d_pose/openpose_coco/1/y_train.npy")
-SAVE_DIR = "/home/louis/.ikea_asm_2d_pose/openpose_coco/SMOTE_AMSR_all"
+X_org = np.load("/home/louis/.ikea_asm_2d_pose/openpose_mp/1/X_train.npy")
+y_org = np.load("/home/louis/.ikea_asm_2d_pose/openpose_mp/1/y_train.npy")
+SAVE_DIR = "/home/louis/.ikea_asm_2d_pose/openpose_mp/distance_SMOTE"
 if not os.path.exists(SAVE_DIR):
     os.mkdir(SAVE_DIR)
 
-print(sv.get_multiclass_oversamplers())#; sys.exit()
-
-oversampler= sv.MulticlassOversampling(oversampler='SMOTE_AMSR',
+oversampler= sv.MulticlassOversampling(oversampler='distance_SMOTE',
                                        oversampler_params={'random_state': 9})#, 'proportion': 0.6})
 
 X_new = np.ones((144662, *X_org.shape[1:]), dtype=np.float32)
