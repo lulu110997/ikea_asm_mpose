@@ -41,7 +41,7 @@ class Trainer:
         self.split = config["SUBDIR"]
         L2_PENALTY = 0.001
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
-        self.model_size = model_sz #self.config['MODEL_SIZE']
+        self.model_size = model_sz; self.logger.save_log(self.model_size) #self.config['MODEL_SIZE'];
         self.n_heads = config[self.model_size]['N_HEADS']
         self.n_layers = config[self.model_size]['N_LAYERS']
         self.embed_dim = config[self.model_size]['EMBED_DIM']  # Size of embedded input. dv = 64, made constant according to paper
@@ -192,7 +192,7 @@ class Trainer:
         else:
             self.model.load_weights(self.weights_path)
 
-        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test)
+        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test, verbose=2)
 
         X, y = tuple(zip(*self.ds_test))
         y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0), verbose=2), axis=-1), axis=1)
@@ -249,6 +249,7 @@ class Trainer:
         self.trial = trial
         self.get_random_hp()
         acc, bal_acc, f1, auc, loss = self.do_training()
+        self.logger.save_log(f'Trial #{trial}')
         self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
         self.logger.save_log(f"Accuracy: {acc}")
         self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
@@ -259,11 +260,12 @@ class Trainer:
     def get_random_hp(self):
         self.WEIGHT_DECAY = round(self.trial.suggest_float("WD", 1e-4, 1e-3, log=True), 5)
         self.STEP_PERC = round(self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05), 5)
+        self.WARMUP_PERC = round(self.trial.suggest_float("WARMUP_PERC", 0.1, 0.3, step=0.05), 5)
 
-        self.label_smoothing = round(self.trial.suggest_float("label_smoothing", 0.01, 0.3), 5)
+        self.label_smoothing = round(self.trial.suggest_float("label_smoothing", 0, 0.3), 5)
         self.dropout = round(self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05), 5)
         self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
-        self.d_ff = self.trial.suggest_int("d_ff", 32, 256, step=16)
+        self.d_ff = self.trial.suggest_int("d_ff", self.d_model, 4*self.d_model, step=16)
         self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
         self.d_model = self.trial.suggest_int("d_model", 40, 64, step=2)
 

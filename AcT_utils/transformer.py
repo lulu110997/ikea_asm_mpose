@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 # credits to https://www.tensorflow.org/tutorials/text/transformer
+import sys
 
 import tensorflow as tf
 import numpy as np
