@@ -70,7 +70,7 @@ STEP_PERC: 0.8 #0.8
 LABEL_SMOOTHING: 0.262
 
 #---- RANDOM SEARCH
-N_TRIALS: 100 #null
+N_TRIALS: 250 #null
 
 #---- TEST SETTINGS
 WEIGHTS: '/home/louis/Data/Fernandez_HAR/AcT_pretrained_weights/openpose/micro/AcT_micro.h5'
