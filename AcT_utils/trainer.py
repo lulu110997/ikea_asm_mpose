@@ -249,7 +249,7 @@ class Trainer:
         self.trial = trial
         self.get_random_hp()
         acc, bal_acc, f1, auc, loss = self.do_training()
-        self.logger.save_log(f'Trial #{trial}')
+        self.logger.save_log(f'Trial #{trial.number}')
         self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
         self.logger.save_log(f"Accuracy: {acc}")
         self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
