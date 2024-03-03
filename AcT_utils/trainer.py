@@ -8,7 +8,7 @@ import yaml
 from matplotlib import pyplot as plt
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
+import gc
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
@@ -30,6 +30,10 @@ from AcT_utils import pickle_wrapper as _pw
 tf.random.set_seed(11)
 np.random.seed(11)
 random.seed(11)
+
+class clean_up(tf.keras.callbacks.Callback):
+  def on_epoch_end(self, epoch, logs=None):
+    gc.collect()
 
 # TRAINER CLASS
 class Trainer:
@@ -160,7 +164,7 @@ class Trainer:
         history = self.model.fit(self.ds_train, verbose=2,
                                  epochs=self.N_EPOCHS, initial_epoch=0,
                                  validation_data=self.ds_test, steps_per_epoch=self.train_steps,
-                                 callbacks=[self.checkpointer])
+                                 callbacks=[self.checkpointer, clean_up()])
         h = (history.history['loss'], history.history['val_loss'],
              history.history['accuracy'], history.history['val_accuracy'],
              history.history["f1_score"], history.history["val_f1_score"],
@@ -222,7 +226,7 @@ class Trainer:
         self.study = optuna.create_study(study_name='{}_random_search'.format(self.DATA_TYPE),
                                          directions=["maximize", "maximize"])
         self.study.optimize(lambda trial: self.objective(trial),
-                            n_trials=self.N_TRIALS)
+                            n_trials=self.N_TRIALS, gc_after_trial=True)
 
         pruned_trials = self.study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = self.study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -246,6 +250,7 @@ class Trainer:
 
     def objective(self, trial):
         tf.keras.backend.clear_session()
+        gc.collect()
         self.trial = trial
         self.get_random_hp()
         acc, bal_acc, f1, auc, loss = self.do_training()
