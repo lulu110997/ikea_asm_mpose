@@ -100,7 +100,7 @@ class Trainer:
         lr = tf.keras.optimizers.schedules.CosineDecay(initial_learning_rate=5e-7,
                                                        decay_steps=self.STEP_PERC*self.N_EPOCHS*self.train_steps,
                                                        alpha=1e-2,
-                                                       warmup_target=1e-3,
+                                                       warmup_target=self.max_learning_rate,
                                                        warmup_steps=self.WARMUP_PERC*self.N_EPOCHS*self.train_steps)
         loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=self.label_smoothing)
         optim = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=self.WEIGHT_DECAY)
@@ -258,26 +258,31 @@ class Trainer:
         return bal_acc, f1
 
     def get_random_hp(self):
-        self.WEIGHT_DECAY = round(self.trial.suggest_float("WD", 1e-4, 1e-3, log=True), 5)
+        self.WEIGHT_DECAY = round(self.trial.suggest_float("WD", 1e-4, 1e-2, log=True), 5)
         self.STEP_PERC = round(self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05), 5)
         self.WARMUP_PERC = round(self.trial.suggest_float("WARMUP_PERC", 0.1, 0.3, step=0.05), 5)
 
         self.label_smoothing = round(self.trial.suggest_float("label_smoothing", 0, 0.3), 5)
         self.dropout = round(self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05), 5)
         self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
-        self.d_ff = self.trial.suggest_int("d_ff", self.d_model, 4*self.d_model, step=16)
-        self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
-        self.d_model = self.trial.suggest_int("d_model", 40, 64, step=2)
+        self.n_heads = self.trial.suggest_int("n_heads", 1, 3, step=1)
+        self.d_model = self.d_model*self.n_heads
+        self.d_ff = self.trial.suggest_int("d_ff", 2, 4, step=1)*self.d_model
+        self.n_layers = self.trial.suggest_int("n_layers", 2, 5, step=1)
+        self.max_learning_rate = 5*(10 ** -self.trial.suggest_int("max_learning_rate", 2, 5, step=1))
 
         self.logger.save_log('WEIGHT_DECAY: {:.2e}'.format(self.WEIGHT_DECAY))
         self.logger.save_log('STEP_PERC: {:.2e}'.format(self.STEP_PERC))
+        self.logger.save_log('WARMUP_PERC: {:.2e}'.format(self.WARMUP_PERC))
 
         self.logger.save_log('label_smoothing: {:.2e}'.format(self.label_smoothing))
         self.logger.save_log('dropout: {:.2e}'.format(self.dropout))
         self.logger.save_log('MLP: {}'.format(self.mlp_head_size))
+        self.logger.save_log('n_heads: {}'.format(self.n_heads))
+        self.logger.save_log('d_model: {}'.format(self.d_model))
         self.logger.save_log('d_ff: {}'.format(self.d_ff))
         self.logger.save_log('n_layers: {}'.format(self.n_layers))
-        self.logger.save_log('d_model: {}'.format(self.d_model))
+        self.logger.save_log('max_learning_rate: {}'.format(self.max_learning_rate))
 
     def save_plots(self):
         if self.N_TRIALS is None:
