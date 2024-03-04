@@ -196,7 +196,7 @@ class Trainer:
         else:
             self.model.load_weights(self.weights_path)
 
-        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test, verbose=2)
+        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test, verbose=2, callbacks=[clean_up()])
 
         X, y = tuple(zip(*self.ds_test))
         y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0), verbose=2), axis=-1), axis=1)
@@ -249,6 +249,10 @@ class Trainer:
                     f"{self.results_dir}/{self.DATA_TYPE}_{self.DATASET}_random_search_{self.trial.number}.pickle")
 
     def objective(self, trial):
+        try:
+            del self.model, self.ds_train, self.ds_test
+        except:
+            pass
         tf.keras.backend.clear_session()
         gc.collect()
         self.trial = trial
@@ -271,10 +275,10 @@ class Trainer:
         self.dropout = round(self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05), 5)
         self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
         self.n_heads = self.trial.suggest_int("n_heads", 1, 3, step=1)
-        self.d_model = self.d_model*self.n_heads
+        self.d_model = 64*self.n_heads
         self.d_ff = self.trial.suggest_int("d_ff", 2, 4, step=1)*self.d_model
         self.n_layers = self.trial.suggest_int("n_layers", 2, 5, step=1)
-        self.max_learning_rate = 5*(10 ** -self.trial.suggest_int("max_learning_rate", 2, 5, step=1))
+        self.max_learning_rate = random.randint(1, 5)*(10 ** -random.randint(2, 4))
 
         self.logger.save_log('WEIGHT_DECAY: {:.2e}'.format(self.WEIGHT_DECAY))
         self.logger.save_log('STEP_PERC: {:.2e}'.format(self.STEP_PERC))
