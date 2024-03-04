@@ -32,8 +32,8 @@ np.random.seed(11)
 random.seed(11)
 
 class clean_up(tf.keras.callbacks.Callback):
-  def on_epoch_end(self, epoch, logs=None):
-    gc.collect()
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
 
 # TRAINER CLASS
 class Trainer:
