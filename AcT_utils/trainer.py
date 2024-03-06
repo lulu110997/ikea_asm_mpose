@@ -1,8 +1,5 @@
 # GENERAL LIBRARIES 
 import os
-import math
-import sys
-import time
 
 import yaml
 from matplotlib import pyplot as plt
@@ -18,30 +15,30 @@ import joblib
 import sklearn
 import random
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
+
 # OPTUNA
 import optuna
 from optuna.trial import TrialState
 # CUSTOM LIBRARIES
 from AcT_utils import TransformerEncoder, PatchClassEmbedding
 from AcT_utils import load_mpose, random_flip, random_noise, one_hot
-from AcT_utils import CustomSchedule
 from AcT_utils import pickle_wrapper as _pw
+
 tf.random.set_seed(11)
 np.random.seed(11)
 random.seed(11)
 
 # TRAINER CLASS
 class Trainer:
-    def __init__(self, config, logger, model_sz, root_results_dir, split=1):
+    def __init__(self, config, logger, model_sz, root_results_dir):
 
         self.trial = None
         self.norm_input = None
         self.logger = logger
-        self.split = split
-        L2_PENALTY = 0.001
+        self.split = config["SUBDIR"]
+        L2_PENALTY = 0.01
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
-        self.model_size = model_sz #self.config['MODEL_SIZE']
+        self.model_size = model_sz; self.logger.save_log(self.model_size)
         self.n_heads = config[self.model_size]['N_HEADS']
         self.n_layers = config[self.model_size]['N_LAYERS']
         self.embed_dim = config[self.model_size]['EMBED_DIM']  # Size of embedded input. dv = 64, made constant according to paper
@@ -50,6 +47,7 @@ class Trainer:
         self.activation = tf.nn.gelu
         self.d_model = 64 * self.n_heads
         self.d_ff = 4 * self.d_model  # Output size of the first non-linear layer in the transformer encoder
+        self.label_smoothing = config['LABEL_SMOOTHING']
         assert self.d_model == self.embed_dim  # Should be the same
 
         self.DATASET = config["DATASET"]
@@ -61,8 +59,6 @@ class Trainer:
         self.WEIGHT_DECAY = config["WEIGHT_DECAY"]
         self.WARMUP_PERC = config["WARMUP_PERC"]
         self.STEP_PERC = config["STEP_PERC"]
-        self.N_FOLD = config["FOLDS"]
-        self.N_SPLITS = config["SPLITS"]
         self.LABELS = config["LABELS_V"]
         self.N_FRAMES = config[self.DATASET]["FRAMES"]
         self.N_KEYPOINTS = config[self.DATASET]["KEYPOINTS"]
@@ -77,7 +73,7 @@ class Trainer:
             yaml.dump(config, outfile, default_flow_style=False)
 
     def build_act(self, transformer):
-        inputs = tf.keras.layers.Input(shape=(self.N_FRAMES, self.N_KEYPOINTS * self.FEATURES_PER_KP))
+        inputs = tf.keras.layers.Input(shape=(self.N_FRAMES, 13 * self.FEATURES_PER_KP))
         if self.norm_input is None:
             x = tf.keras.layers.Dense(self.d_model, kernel_regularizer=self.l2_reg)(inputs)  # Projection layer
         else:
@@ -88,53 +84,40 @@ class Trainer:
         x = transformer(x)  # Transformer
         x = tf.keras.layers.Lambda(lambda x: x[:, 0, :])(x)  # Obtain cls
         x = tf.keras.layers.Dense(self.mlp_head_size, kernel_regularizer=self.l2_reg)(x)  # Dense layer
-        outputs = tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg)(x)  # Classification layer
+        outputs = tf.keras.layers.Dense(20, kernel_regularizer=self.l2_reg)(x)  # Classification layer
         return tf.keras.models.Model(inputs, outputs)
 
     
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
         self.model = self.build_act(transformer)
-        weights = "240216171845_TL_last_layer/bin/micro_2d_body.h5"#; weights = weights.replace("small", self.model_size)
+        weights = f"AcT_{self.model_size}_1_0.h5"
         self.model.load_weights(weights); self.logger.save_log(f'transfer learning w/ {weights}')
-        # self.model = tf.keras.Model(inputs=self.model.inputs, #self.norm_input2(self.model.inputs)
-        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
-        # for layer in self.model.layers[:-1]:
-        #     layer.trainable = False
-        # self.model.layers[-1].trainable = False
-        # self.AcT = self.build_act(transformer)
-        # weights = "AcT_small_1_0.h5"; self.logger.save_log('transfer learning')
-        # weights = weights.replace("small", self.model_size)
-        # self.AcT.load_weights(weights)
-        # self.AcT_mod = tf.keras.Model(inputs=self.AcT.inputs,
-        #                               outputs=tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg)(self.AcT.layers[-2].output))
-        # self.model = tf.keras.models.Sequential()
-        # self.model.add(self.norm_input2)
-        # self.model.add(self.AcT_mod)
+        self.model = tf.keras.Model(inputs=self.model.inputs,
+                                    outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
 
-        # self.model = tf.keras.Model(inputs=self.model.inputs,
-        #                             outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE)
         self.logger.save_log(f"train steps: {self.train_steps}")
 
         lr = tf.keras.optimizers.schedules.CosineDecay(initial_learning_rate=5e-7,
-                                                       decay_steps=self.STEP_PERC*self.N_EPOCHS*self.train_steps,
+                                                       decay_steps=self.STEP_PERC * self.N_EPOCHS * self.train_steps,
                                                        alpha=1e-2,
-                                                       warmup_target=5e-4,
-                                                       warmup_steps=self.WARMUP_PERC*self.N_EPOCHS*self.train_steps)
-        loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=0.262)
+                                                       warmup_target=self.max_learning_rate,
+                                                       warmup_steps=self.WARMUP_PERC * self.N_EPOCHS * self.train_steps)
+        loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=self.label_smoothing)
         optim = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=self.WEIGHT_DECAY)
 
         self.model.compile(optimizer=optim,
                            loss=loss,
                            metrics=[tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
                                     tf.keras.metrics.F1Score(average="macro"),
-                                    tf.keras.metrics.AUC(multi_label=True, from_logits=True, num_labels=self.N_CLASSES)])
+                                    tf.keras.metrics.AUC(multi_label=True, from_logits=True,
+                                                         num_labels=self.N_CLASSES)])
         for layer in self.model.layers:
             self.logger.save_log(f"{layer.name}, {len(layer.trainable_weights)}, {len(layer.non_trainable_weights)}")
         self.logger.save_log("")
         self.name_model_bin = f"{self.model_size}_{self.DATA_TYPE}.h5"
-        self.checkpointer = tf.keras.callbacks.ModelCheckpoint(self.bin_path + self.name_model_bin,  #"{epoch:02d}_"
+        self.checkpointer = tf.keras.callbacks.ModelCheckpoint(self.bin_path + self.name_model_bin,
                                                                monitor="val_accuracy", mode="max",
                                                                save_best_only=True, save_weights_only=True)
         return
@@ -151,29 +134,22 @@ class Trainer:
             ds.append(tmp_ds)
 
         return tf.data.Dataset.sample_from_datasets(ds, stop_on_empty_dataset=True, rerandomize_each_iteration=True)
+
     def get_data(self):
 
         X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.split, velocity=self.velocity)
-        self.norm_input2 = tf.keras.layers.Normalization(axis=None)
-        self.norm_input2.adapt(X_train)
+        self.logger.save_log(f"subdir: {self.split}")
 
-        # self.ds_train = tf.data.Dataset.from_tensor_slices((X_train, y_train)); self.train_len = len(y_train)
         self.ds_train = self.resample(X_train, y_train); self.train_len = 5628
-
-        # self.class_weights = sklearn.utils.class_weight.compute_class_weight(class_weight="balanced",
-                                                                  # classes=np.unique(y_train), y=y_train)
-        # self.class_weights = {key: val for key, val in enumerate(weights)}
-
         self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
                                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_flip, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_train = self.ds_train.map(random_noise, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        # self.ds_train = self.ds_train.shuffle(3000, reshuffle_each_iteration=True)
         self.ds_train = self.ds_train.batch(self.BATCH_SIZE)
         self.ds_train = self.ds_train.prefetch(tf.data.experimental.AUTOTUNE)
 
         self.ds_test = tf.data.Dataset.from_tensor_slices((X_test, y_test))
-        self.ds_test = self.ds_test.map(lambda x,y : one_hot(x, y, self.N_CLASSES),
+        self.ds_test = self.ds_test.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
                                         num_parallel_calls=tf.data.experimental.AUTOTUNE)
         self.ds_test = self.ds_test.cache()
         self.ds_test = self.ds_test.batch(self.BATCH_SIZE)
@@ -187,7 +163,6 @@ class Trainer:
                                  epochs=self.N_EPOCHS, initial_epoch=0,
                                  validation_data=self.ds_test, steps_per_epoch=self.train_steps,
                                  callbacks=[self.checkpointer])
-                                 #,class_weight=self.class_weights)
         h = (history.history['loss'], history.history['val_loss'],
              history.history['accuracy'], history.history['val_accuracy'],
              history.history["f1_score"], history.history["val_f1_score"],
@@ -198,31 +173,29 @@ class Trainer:
         else:
             filename = f"model_{self.model_size}_data_{self.DATA_TYPE}_history_trial_{self.trial.number}"
         _pw.save_pickle(os.path.join(self.results_dir, filename), h)
-        return self.evaluate(weights=self.bin_path+self.name_model_bin)
+        return self.evaluate(weights=self.bin_path + self.name_model_bin)
 
     def do_benchmark(self):
-        for split in range(1, self.N_SPLITS + 1):
-            self.logger.save_log(f"model {self.model_size} is being trained")
+        self.logger.save_log(f"model {self.model_size} is being trained")
 
-            self.split = split
+        acc, bal_acc, f1, auc, loss = self.do_training()
 
-            acc, bal_acc, f1, auc, loss = self.do_training()
+        np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
+        np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
 
-            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_acc.npy"), acc)
-            np.save(os.path.join(self.results_dir, f"model_{self.model_size}_data_{self.DATA_TYPE}_bal_acc.npy"), bal_acc)
+        self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
+        self.logger.save_log(f"Accuracy: {acc}")
+        self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
+        self.logger.save_log(f"f1: {f1}")
+        self.logger.save_log(f"auc: {auc}\n")
 
-            self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
-            self.logger.save_log(f"Accuracy: {acc}")
-            self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
-            self.logger.save_log(f"f1: {f1}")
-            self.logger.save_log(f"auc: {auc}\n")
     def evaluate(self, weights=None):
         if weights is not None:
-            self.model.load_weights(self.bin_path+self.name_model_bin)  
+            self.model.load_weights(self.bin_path + self.name_model_bin)
         else:
             self.model.load_weights(self.weights_path)
 
-        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test)
+        loss, accuracy_test, f1, auc = self.model.evaluate(self.ds_test, verbose=2)
 
         X, y = tuple(zip(*self.ds_test))
         y_pred = np.argmax(tf.nn.softmax(self.model.predict(tf.concat(X, axis=0), verbose=2), axis=-1), axis=1)
@@ -238,21 +211,19 @@ class Trainer:
         return accuracy_test, balanced_accuracy, f1, auc, loss
 
     def do_test(self):
-        for split in range(1, self.N_SPLITS + 1):
-            self.logger.save_log(f"model {self.model_size} is being trained")
-            self.split = split
+        self.logger.save_log(f"model {self.model_size} is being trained")
 
-            self.get_data()
-            self.get_model()
-            acc, bal_acc = self.evaluate()
+        self.get_data()
+        self.get_model()
+        acc, bal_acc = self.evaluate()
 
-            self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
-            self.logger.save_log(f"Accuracy: {acc}")
-            self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
+        self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
+        self.logger.save_log(f"Accuracy: {acc}")
+        self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
 
     def do_random_search(self):
         self.study = optuna.create_study(study_name='{}_random_search'.format(self.DATA_TYPE),
-                                         directions=["minimize", "maximize"])
+                                         directions=["maximize", "maximize"])
         self.study.optimize(lambda trial: self.objective(trial),
                             n_trials=self.N_TRIALS)
 
@@ -265,7 +236,7 @@ class Trainer:
         self.logger.save_log(f"  Number of complete trials: {len(complete_trials)}")
 
         self.logger.save_log("Best trial values:")
-        self.logger.save_log(    self.study.best_trials)
+        self.logger.save_log(self.study.best_trials)
 
         self.logger.save_log("\n  Params: ")
         for s in self.study.best_trials:
@@ -281,33 +252,30 @@ class Trainer:
         self.trial = trial
         self.get_random_hp()
         acc, bal_acc, f1, auc, loss = self.do_training()
+        self.logger.save_log(f'Trial #{trial.number}')
         self.logger.save_log(f"Model {self.model_size} metrics with {self.DATA_TYPE}")
         self.logger.save_log(f"Accuracy: {acc}")
         self.logger.save_log(f"Balanced Accuracy: {bal_acc}")
         self.logger.save_log(f"f1: {f1}")
         self.logger.save_log(f"auc: {auc}\n")
-        return loss, f1
+        return bal_acc, f1
 
     def get_random_hp(self):
-        self.WEIGHT_DECAY = self.trial.suggest_float("WD", 1e-4, 1e-3, log=True)
-        self.STEP_PERC = self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05)
+        self.WEIGHT_DECAY = round(self.trial.suggest_float("WD", 1e-4, 1e-2, log=True), 5)
+        self.STEP_PERC = round(self.trial.suggest_float("STEP_PERC", 0.5, 0.8, step=0.05), 5)
+        self.WARMUP_PERC = round(self.trial.suggest_float("WARMUP_PERC", 0.1, 0.3, step=0.05), 5)
 
-        self.label_smoothing = self.trial.suggest_float("label_smoothing", 0.01, 0.3)
-        self.dropout = self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05)
-        self.mlp_head_size = self.trial.suggest_int("MLP", 32, 256, step=16)
-        self.d_ff = self.trial.suggest_int("d_ff", 32, 256, step=16)
-        self.n_layers = self.trial.suggest_int("n_layers", 2, 4, step=1)
-        self.d_model = self.trial.suggest_int("d_model", 40, 64, step=2)
+        self.label_smoothing = round(self.trial.suggest_float("label_smoothing", 0, 0.3), 5)
+        self.dropout = round(self.trial.suggest_float("dropout", 0.1, 0.8, step=0.05), 5)
+        self.max_learning_rate = random.randint(1, 5) * (10 ** -random.randint(2, 4))
 
         self.logger.save_log('WEIGHT_DECAY: {:.2e}'.format(self.WEIGHT_DECAY))
         self.logger.save_log('STEP_PERC: {:.2e}'.format(self.STEP_PERC))
+        self.logger.save_log('WARMUP_PERC: {:.2e}'.format(self.WARMUP_PERC))
 
         self.logger.save_log('label_smoothing: {:.2e}'.format(self.label_smoothing))
         self.logger.save_log('dropout: {:.2e}'.format(self.dropout))
-        self.logger.save_log('MLP: {}'.format(self.mlp_head_size))
-        self.logger.save_log('d_ff: {}'.format(self.d_ff))
-        self.logger.save_log('n_layers: {}'.format(self.n_layers))
-        self.logger.save_log('d_model: {}'.format(self.d_model))
+        self.logger.save_log('max_learning_rate: {}'.format(self.max_learning_rate))
 
     def save_plots(self):
         if self.N_TRIALS is None:
@@ -345,7 +313,7 @@ class Trainer:
         fig.set_size_inches(10.8, 10.8)
         ax = plt.gca()
         ax.set_title(f"Confusion matrix for model_{self.model_size}_data_{self.DATA_TYPE}_norm")
-        ax.set_xticklabels(self.LABELS, rotation=25, ha='right', fontsize=X_SCALE*FONT_SIZE)
+        ax.set_xticklabels(self.LABELS, rotation=25, ha='right', fontsize=X_SCALE * FONT_SIZE)
         ax.set_yticklabels(self.LABELS, fontsize=1.4 * FONT_SIZE)
         for labels in disp.text_.ravel():
             labels.set_fontsize(1.4 * FONT_SIZE)

@@ -21,11 +21,7 @@ openpose_coco:
     CLASSES: 33
     FRAMES: 30
 openpose_mp:
-    KEYPOINTS: 53
-    CLASSES: 33
-    FRAMES: 30
-openpose_mp_reduced:
-    KEYPOINTS: 13
+    KEYPOINTS: 13 #53
     CLASSES: 33
     FRAMES: 30
 

@@ -51,7 +51,7 @@ logger = Logger(results_dirs[2] + f'/{MODEL_SZ}_log.txt')
 # SET TRAINER
 trainer = Trainer(config, logger, MODEL_SZ, results_dirs)
 
-if 1:
+if args.benchmark:
     # RUN BENCHMARK
     trainer.do_benchmark()
 
