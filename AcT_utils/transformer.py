@@ -18,7 +18,7 @@ import tensorflow as tf
 import numpy as np
 import copy
 
-L2_REG = tf.keras.regularizers.l2(0.01)
+L2_REG = tf.keras.regularizers.l2(0.001)
 def scaled_dot_product_attention(q, k, v, mask):
     """Calculate the attention weights.
     q, k, v must have matching leading dimensions.

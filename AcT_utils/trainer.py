@@ -1,21 +1,17 @@
 # GENERAL LIBRARIES 
 import os
-
-import yaml
-from matplotlib import pyplot as plt
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
+from matplotlib import pyplot as plt
+import yaml
 import numpy as np
 import joblib
 # MACHINE LEARNING LIBRARIES
 import sklearn
 import random
 import tensorflow as tf
-
 # OPTUNA
 import optuna
 from optuna.trial import TrialState
@@ -35,8 +31,8 @@ class Trainer:
         self.trial = None
         self.norm_input = None
         self.logger = logger
-        self.split = config["SUBDIR"]
-        L2_PENALTY = 0.01
+        self.sub_dir = config["SUBDIR"]
+        L2_PENALTY = 0.001
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
         self.model_size = model_sz; self.logger.save_log(self.model_size)
         self.n_heads = config[self.model_size]['N_HEADS']
@@ -74,12 +70,7 @@ class Trainer:
 
     def build_act(self, transformer):
         inputs = tf.keras.layers.Input(shape=(self.N_FRAMES, 13 * self.FEATURES_PER_KP))
-        if self.norm_input is None:
-            x = tf.keras.layers.Dense(self.d_model, kernel_regularizer=self.l2_reg)(inputs)  # Projection layer
-        else:
-            x = self.norm_input(inputs); self.logger.save_log("normalise")
-            x = tf.keras.layers.Dense(self.d_model, kernel_regularizer=self.l2_reg)(x)  # Projection layer
-
+        x = tf.keras.layers.Dense(self.d_model, kernel_regularizer=self.l2_reg)(inputs)  # Projection layer
         x = PatchClassEmbedding(self.d_model, self.N_FRAMES, pos_emb=None)(x)  # Positional embedding layer
         x = transformer(x)  # Transformer
         x = tf.keras.layers.Lambda(lambda x: x[:, 0, :])(x)  # Obtain cls
@@ -91,6 +82,7 @@ class Trainer:
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
         self.model = self.build_act(transformer)
+        # Load weights then replace final layer
         weights = f"AcT_{self.model_size}_1_0.h5"
         self.model.load_weights(weights); self.logger.save_log(f'transfer learning w/ {weights}')
         self.model = tf.keras.Model(inputs=self.model.inputs,
@@ -132,13 +124,12 @@ class Trainer:
             tmp_ds = tmp_ds.shuffle(BUFFER_SIZE, reshuffle_each_iteration=True)
             tmp_ds = tmp_ds.repeat()
             ds.append(tmp_ds)
-
         return tf.data.Dataset.sample_from_datasets(ds, stop_on_empty_dataset=True, rerandomize_each_iteration=True)
 
     def get_data(self):
 
-        X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.split, velocity=self.velocity)
-        self.logger.save_log(f"subdir: {self.split}")
+        X_train, y_train, X_test, y_test = load_mpose(self.DATASET, self.sub_dir, velocity=self.velocity)
+        self.logger.save_log(f"subdir: {self.sub_dir}")
 
         self.ds_train = self.resample(X_train, y_train); self.train_len = 5628
         self.ds_train = self.ds_train.map(lambda x, y: one_hot(x, y, self.N_CLASSES),
