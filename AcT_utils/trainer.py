@@ -1,5 +1,7 @@
 # GENERAL LIBRARIES 
 import os
+import sys
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
@@ -32,7 +34,7 @@ class Trainer:
         self.norm_input = None
         self.logger = logger
         self.sub_dir = config["SUBDIR"]
-        L2_PENALTY = 0.001
+        L2_PENALTY = 0.005
         self.l2_reg = tf.keras.regularizers.l2(L2_PENALTY); self.logger.save_log(f'l2: {L2_PENALTY}')
         self.model_size = model_sz; self.logger.save_log(self.model_size)
         self.n_heads = config[self.model_size]['N_HEADS']
@@ -81,12 +83,18 @@ class Trainer:
     
     def get_model(self):
         transformer = TransformerEncoder(self.d_model, self.n_heads, self.d_ff, self.dropout, self.activation, self.n_layers)
-        self.model = self.build_act(transformer)
+        act_trans = self.build_act(transformer)
         # Load weights then replace final layer
         weights = f"AcT_{self.model_size}_1_0.h5"
-        self.model.load_weights(weights); self.logger.save_log(f'transfer learning w/ {weights}')
-        self.model = tf.keras.Model(inputs=self.model.inputs,
-                                    outputs=tf.keras.layers.Dense(self.N_CLASSES)(self.model.layers[-2].output))
+        act_trans.load_weights(weights); self.logger.save_log(f'transfer learning w/ {weights}')
+
+        # Create model to suit our dataset
+        self.model = tf.keras.Sequential()
+        self.model.add(tf.keras.layers.InputLayer(input_shape=(self.N_FRAMES, self.N_KEYPOINTS * self.FEATURES_PER_KP)))
+        self.model.add(tf.keras.layers.Dense(self.d_model, kernel_regularizer=self.l2_reg))
+        for layer in act_trans.layers[2:len(act_trans.layers)-1]:
+            self.model.add(layer)
+        self.model.add(tf.keras.layers.Dense(self.N_CLASSES, kernel_regularizer=self.l2_reg))
 
         self.train_steps = np.ceil(float(self.train_len)/self.BATCH_SIZE)
         self.logger.save_log(f"train steps: {self.train_steps}")

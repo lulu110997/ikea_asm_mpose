@@ -55,7 +55,7 @@ if args.benchmark:
     # RUN BENCHMARK
     trainer.do_benchmark()
 
-elif 1:
+elif True or args.search:
     # RUN RANDOM SEARCH
     try:
         trainer.do_random_search()
