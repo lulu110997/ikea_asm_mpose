@@ -47,10 +47,13 @@ def plot_cm(cm):
     plt.close('all')
 
 max = [0, 0]; max_idx = 0
-for i in range(196):
-    conf_matr = _pw.open_pickle(PATH.replace('trial_0', f'trial_{i}'))
-    scores = get_acc_scores(conf_matr)
-    if scores[1] > max[1]:
-        max = scores
-        max_idx= i
+for i in range(250):
+    try:
+        conf_matr = _pw.open_pickle(PATH.replace('trial_0', f'trial_{i}'))
+        scores = get_acc_scores(conf_matr)
+        if scores[1] > max[1]:
+            max = scores
+            max_idx = i
+    except FileNotFoundError:  # Incomplete trials
+        pass
 print(f"{max} at trial #{max_idx}")
